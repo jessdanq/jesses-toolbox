@@ -1,0 +1,16 @@
+# Dependencies and caches
+.deps/
+.cache/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Temporary and log files
+*.tmp
+*.log
+
+# OS and Editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
