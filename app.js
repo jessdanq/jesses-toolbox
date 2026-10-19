@@ -1,5 +1,6 @@
 const $ = id => document.getElementById(id);
 let player, ready = false, loop = false, repeats = 0;
+let localVideo = null;
 
 function route() {
   const hash = location.hash.slice(1);
@@ -17,7 +18,6 @@ function route() {
   window.scrollTo(0, 0);
 }
 window.addEventListener('hashchange', route);
-route();
 
 /* --- YouTube A-B Repeater Logic --- */
 function videoId(value) {
@@ -311,7 +311,7 @@ window.addEventListener('beforeunload', e => {
 /* =========================================================
    --- Local Video A-B Repeater Logic ---
    ========================================================= */
-const localVideo = $('local-video');
+localVideo = $('local-video');
 let localFileUrl = null;
 let localLoadedFile = null;
 let localReady = false;
@@ -374,21 +374,25 @@ function updateTimelineLoopRegion() {
   const widthPct = Math.max(0, rightPct - leftPct);
   region.style.left = leftPct + '%';
   region.style.width = widthPct + '%';
-  $('local-loop-span').textContent = `Loop: ${formatLocal(localPointA)} → ${formatLocal(localPointB)}`;
+  const span = $('local-loop-span');
+  if (span) span.textContent = `Loop: ${formatLocal(localPointA)} → ${formatLocal(localPointB)}`;
 }
 
 function updatePlayhead() {
-  if (!localReady || isScrubbing) return;
+  if (!localReady || isScrubbing || !localVideo) return;
   const dur = localVideo.duration || 0;
   const cur = localVideo.currentTime || 0;
-  $('local-current-time').textContent = formatLocal(cur);
+  const curEl = $('local-current-time');
+  if (curEl) curEl.textContent = formatLocal(cur);
   if (dur > 0) {
     const pct = Math.max(0, Math.min(100, (cur / dur) * 100));
-    $('timeline-playhead').style.left = pct + '%';
+    const head = $('timeline-playhead');
+    if (head) head.style.left = pct + '%';
   }
 }
 
 function setPointA(val) {
+  if (!localVideo) return;
   const dur = localVideo.duration || 1000;
   let newA = Math.max(0, Math.min(dur - 0.2, Number(val) || 0));
   if (newA >= localPointB - 0.2) {
@@ -402,6 +406,7 @@ function setPointA(val) {
 }
 
 function setPointB(val) {
+  if (!localVideo) return;
   const dur = localVideo.duration || 1000;
   let newB = Math.min(dur, Math.max(0.2, Number(val) || 0));
   if (newB <= localPointA + 0.2) {
@@ -415,7 +420,7 @@ function setPointB(val) {
 }
 
 function startLocalLoop() {
-  if (!localReady) return;
+  if (!localReady || !localVideo) return;
   if (localPointB <= localPointA) {
     localMessage('Point B must be after Point A.');
     return;
@@ -424,8 +429,10 @@ function startLocalLoop() {
   localIsDelaying = false;
   clearTimeout(localDelayTimer);
   const btn = $('local-toggle-loop');
-  btn.textContent = 'Stop loop ■';
-  btn.classList.add('looping');
+  if (btn) {
+    btn.textContent = 'Stop loop ■';
+    btn.classList.add('looping');
+  }
   if (localVideo.currentTime < localPointA || localVideo.currentTime >= localPointB) {
     localVideo.currentTime = localPointA;
   }
@@ -447,8 +454,10 @@ function stopLocalLoop(messageText = 'Loop stopped. Video continues playing.') {
 
 function loadVideoFile(file) {
   if (!file) return;
-  if (!file.type.startsWith('video/') && !/\.(mp4|webm|mov|mkv|m4v|avi|ogv)$/i.test(file.name)) {
-    localMessage('Please select a compatible video file (MP4, WebM, MOV, MKV, etc.).');
+  const isVideo = (file.type && file.type.startsWith('video/')) ||
+                  /\.(mp4|webm|mov|mkv|m4v|avi|ogv|ts|flv|wmv|3gp|m4p|mpg|mpeg)$/i.test(file.name || '');
+  if (!isVideo && file.size === 0) {
+    localMessage('Please select a valid video file.');
     return;
   }
   stopLocalLoop('');
@@ -465,34 +474,65 @@ function loadVideoFile(file) {
   $('local-file-meta').textContent = `${mb} MB • Loading video…`;
   $('local-video-placeholder').hidden = true;
   localMessage('Loading video metadata…');
+  
+  if (fileInput) fileInput.value = '';
 }
 
-// File Pickers
+// File Pickers Wiring
 const fileInput = $('local-file-input');
-$('btn-browse-file').onclick = () => fileInput.click();
-$('btn-placeholder-browse').onclick = () => fileInput.click();
-$('btn-change-file').onclick = () => fileInput.click();
+function openFilePicker() {
+  if (fileInput) fileInput.click();
+}
+
+$('btn-browse-file').onclick = e => { e.stopPropagation(); openFilePicker(); };
+$('btn-placeholder-browse').onclick = e => { e.stopPropagation(); openFilePicker(); };
+$('btn-change-file').onclick = e => { e.stopPropagation(); openFilePicker(); };
+$('drop-content-empty').onclick = () => openFilePicker();
+$('local-video-placeholder').onclick = () => openFilePicker();
+
 fileInput.onchange = () => {
   if (fileInput.files?.[0]) loadVideoFile(fileInput.files[0]);
 };
 
-// Drag and drop handling
+// Global & Container Drag-and-Drop
 const dropzone = $('local-dropzone');
 const videoShell = $('local-video-shell');
-for (const zone of [dropzone, videoShell]) {
-  zone.addEventListener('dragover', e => {
+
+window.addEventListener('dragover', e => {
+  if (location.hash === '#local-repeater') {
     e.preventDefault();
-    dropzone.classList.add('dragover');
-  });
-  zone.addEventListener('dragleave', e => {
-    if (!zone.contains(e.relatedTarget)) dropzone.classList.remove('dragover');
-  });
-  zone.addEventListener('drop', e => {
+  }
+});
+
+let dragCounter = 0;
+window.addEventListener('dragenter', e => {
+  if (location.hash === '#local-repeater') {
+    dragCounter++;
+    dropzone?.classList.add('dragover');
+  }
+});
+
+window.addEventListener('dragleave', e => {
+  if (location.hash === '#local-repeater') {
+    dragCounter--;
+    if (dragCounter <= 0) {
+      dragCounter = 0;
+      dropzone?.classList.remove('dragover');
+    }
+  }
+});
+
+window.addEventListener('drop', e => {
+  if (location.hash === '#local-repeater') {
     e.preventDefault();
-    dropzone.classList.remove('dragover');
-    if (e.dataTransfer.files?.[0]) loadVideoFile(e.dataTransfer.files[0]);
-  });
-}
+    dragCounter = 0;
+    dropzone?.classList.remove('dragover');
+    const files = e.dataTransfer?.files;
+    if (files && files.length > 0) {
+      loadVideoFile(files[0]);
+    }
+  }
+});
 
 // Video Element Events
 localVideo.onloadedmetadata = () => {
@@ -541,7 +581,7 @@ localVideo.onprogress = () => {
 
 // Tight Loop Checker (High Frequency for accurate repeat boundaries)
 setInterval(() => {
-  if (!localReady) return;
+  if (!localReady || !localVideo) return;
   updatePlayhead();
   if (localLooping && !localIsDelaying && !localVideo.paused) {
     if (localVideo.currentTime >= localPointB) {
@@ -571,25 +611,25 @@ setInterval(() => {
 
 // Transport buttons
 $('local-play-btn').onclick = () => {
-  if (!localReady) return;
+  if (!localReady || !localVideo) return;
   if (localVideo.paused) localVideo.play().catch(() => {});
   else localVideo.pause();
 };
 
 $('local-step-back').onclick = () => {
-  if (!localReady) return;
+  if (!localReady || !localVideo) return;
   localVideo.pause();
   localVideo.currentTime = Math.max(0, localVideo.currentTime - 0.1);
 };
 $('local-step-fwd').onclick = () => {
-  if (!localReady) return;
+  if (!localReady || !localVideo) return;
   localVideo.pause();
   localVideo.currentTime = Math.min(localVideo.duration || 0, localVideo.currentTime + 0.1);
 };
 
 // Click directly on video to play/pause
 localVideo.onclick = () => {
-  if (!localReady) return;
+  if (!localReady || !localVideo) return;
   if (localVideo.paused) localVideo.play().catch(() => {});
   else localVideo.pause();
 };
@@ -602,11 +642,11 @@ $('local-nudge-a-up').onclick = () => setPointA(localPointA + 0.1);
 $('local-nudge-b-down').onclick = () => setPointB(localPointB - 0.1);
 $('local-nudge-b-up').onclick = () => setPointB(localPointB + 0.1);
 $('local-jump-a').onclick = () => {
-  if (!localReady) return;
+  if (!localReady || !localVideo) return;
   localVideo.currentTime = localPointA;
 };
 $('local-jump-b').onclick = () => {
-  if (!localReady) return;
+  if (!localReady || !localVideo) return;
   localVideo.currentTime = localPointB;
 };
 
@@ -629,7 +669,7 @@ $('local-toggle-loop').onclick = () => {
 
 // Speed & Delay controls
 $('local-speed').onchange = () => {
-  if (!localReady) return;
+  if (!localReady || !localVideo) return;
   localVideo.playbackRate = Number($('local-speed').value);
   if ('preservesPitch' in localVideo) localVideo.preservesPitch = true;
 };
@@ -640,18 +680,22 @@ $('local-reset-repeats').onclick = () => {
 
 // Volume & Fullscreen
 $('local-volume').oninput = () => {
+  if (!localVideo) return;
   localVideo.volume = Number($('local-volume').value);
   localVideo.muted = false;
   $('local-mute-btn').textContent = localVideo.volume === 0 ? '🔇' : '🔊';
 };
 $('local-mute-btn').onclick = () => {
+  if (!localVideo) return;
   localVideo.muted = !localVideo.muted;
   $('local-mute-btn').textContent = localVideo.muted ? '🔇' : '🔊';
 };
 $('local-fullscreen-btn').onclick = () => {
   const shell = $('local-video-shell');
+  if (!shell) return;
+  const req = shell.requestFullscreen || shell.webkitRequestFullscreen || shell.msRequestFullscreen;
   if (!document.fullscreenElement) {
-    (shell.requestFullscreen || shell.webkitRequestFullscreen || shell.msRequestFullscreen).call(shell);
+    if (req) req.call(shell);
   } else {
     document.exitFullscreen?.();
   }
@@ -662,7 +706,7 @@ const track = $('timeline-track');
 const hoverTime = $('timeline-hover-time');
 
 function seekFromEvent(e) {
-  if (!localReady || !localVideo.duration) return;
+  if (!localReady || !localVideo || !localVideo.duration) return;
   const rect = track.getBoundingClientRect();
   const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
   localVideo.currentTime = ratio * localVideo.duration;
@@ -685,7 +729,7 @@ window.addEventListener('mouseup', () => {
 });
 
 track.addEventListener('mousemove', e => {
-  if (!localReady || !localVideo.duration) return;
+  if (!localReady || !localVideo || !localVideo.duration) return;
   const rect = track.getBoundingClientRect();
   const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
   const t = ratio * localVideo.duration;
@@ -700,7 +744,7 @@ track.addEventListener('mouseleave', () => {
 
 // Keyboard Shortcuts
 window.addEventListener('keydown', e => {
-  if (location.hash !== '#local-repeater' || !localReady) return;
+  if (location.hash !== '#local-repeater' || !localReady || !localVideo) return;
   if (['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement?.tagName)) return;
 
   if (e.code === 'Space') {
@@ -742,3 +786,6 @@ window.addEventListener('keydown', e => {
     $('local-mute-btn').textContent = localVideo.muted ? '🔇' : '🔊';
   }
 });
+
+// Initialize route now that all components are loaded
+route();
