@@ -4,10 +4,11 @@ let localVideo = null;
 
 function route() {
   const hash = location.hash.slice(1);
-  const page = ['mp3', 'repeater', 'local-repeater'].includes(hash) ? hash : 'home';
-  for (const id of ['home', 'mp3', 'repeater', 'local-repeater']) {
-    const el = $(id);
-    if (el) el.hidden = id !== page;
+  const sections = Array.from(document.querySelectorAll('main > section'));
+  const validPages = sections.map(s => s.id);
+  const page = validPages.includes(hash) ? hash : 'home';
+  for (const s of sections) {
+    s.hidden = s.id !== page;
   }
   if (page !== 'repeater' && ready && player && typeof player.pauseVideo === 'function') {
     player.pauseVideo();
