@@ -25,7 +25,9 @@ h1 em { font-style: normal; color: #7c8c55; }
 .intro { font-size: 16px; line-height: 1.7; color: var(--muted); margin: 22px 0 54px; }
 .section-label { display: flex; justify-content: space-between; font-size: 10px; letter-spacing: 1.8px; color: #7c8377; margin-bottom: 19px; }
 
-/* Cards Collection */
+/* Category Blocks & Cards */
+.category-block { margin-bottom: 52px; }
+.category-block:last-of-type { margin-bottom: 32px; }
 .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); gap: 24px; }
 .card { border-radius: 16px; overflow: hidden; border: 1px solid #d9ddcf; transition: transform .2s, box-shadow .2s; }
 .card:hover { transform: translateY(-5px); box-shadow: 0 12px 26px #203c3410; }
