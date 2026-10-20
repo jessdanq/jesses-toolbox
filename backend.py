@@ -19,21 +19,28 @@ if (ROOT / '.deps').exists():
 
 def canonical_url(value):
     if not isinstance(value, str) or len(value) > 4096:
-        raise ValueError('Enter a valid YouTube video link.')
+        raise ValueError('Enter a valid YouTube or YouTube Music link.')
+    value = value.strip()
+    if not value:
+        raise ValueError('Enter a valid YouTube or YouTube Music link.')
+    if not re.match(r'^https?://', value, re.IGNORECASE):
+        value = 'https://' + value
     u = urlparse(value)
     if u.scheme not in ('http', 'https') or u.username or u.password:
-        raise ValueError('Enter a valid YouTube video link.')
-    if u.hostname == 'youtu.be':
+        raise ValueError('Enter a valid YouTube or YouTube Music link.')
+    host = (u.hostname or '').lower()
+    video = ''
+    if host == 'youtu.be':
         video = u.path.strip('/').split('/')[0]
-    elif u.hostname in ('youtube.com', 'www.youtube.com', 'm.youtube.com', 'music.youtube.com'):
+    elif host in ('youtube.com', 'www.youtube.com', 'm.youtube.com', 'music.youtube.com', 'www.music.youtube.com', 'm.music.youtube.com', 'www.youtube-nocookie.com'):
         video = parse_qs(u.query).get('v', [''])[0]
         if not video:
             match = re.fullmatch(r'/(?:shorts|embed|live)/([\w-]{11})/?', u.path)
             video = match[1] if match else ''
-    else:
-        video = ''
     if not re.fullmatch(r'[\w-]{11}', video):
-        raise ValueError('Enter a valid YouTube video link, not a playlist.')
+        if parse_qs(u.query).get('list') or 'playlist' in u.path:
+            raise ValueError('Playlists are not supported. Please paste a direct track or video link.')
+        raise ValueError('Enter a valid YouTube or YouTube Music link, not a playlist.')
     return 'https://www.youtube.com/watch?v=' + video
 
 def ffmpeg_path():
@@ -251,7 +258,7 @@ class Handler(SimpleHTTPRequestHandler):
             if bitrate not in (128, 192, 320):
                 raise ValueError('Choose 128, 192, or 320 kbps.')
         except (ValueError, TypeError, AttributeError):
-            return self.json_response(400, {'error': 'Enter a valid YouTube link and choose an available MP3 quality.'})
+            return self.json_response(400, {'error': 'Enter a valid YouTube or YouTube Music link and choose an available MP3 quality.'})
         missing = dependency_status()
         if missing:
             return self.json_response(503, {'error': 'Run Setup backend.cmd. Missing: ' + ', '.join(missing)})

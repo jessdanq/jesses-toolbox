@@ -22,10 +22,17 @@ window.addEventListener('hashchange', route);
 /* --- YouTube A-B Repeater Logic --- */
 function videoId(value) {
   try {
-    const u = new URL(value);
+    let raw = (value || '').trim();
+    if (!raw) return null;
+    if (!/^https?:\/\//i.test(raw)) {
+      raw = 'https://' + raw;
+    }
+    const u = new URL(raw);
+    const host = u.hostname.toLowerCase();
     let id;
-    if (u.hostname === 'youtu.be') id = u.pathname.split('/')[1];
-    else if (['youtube.com', 'www.youtube.com', 'm.youtube.com', 'music.youtube.com', 'www.youtube-nocookie.com'].includes(u.hostname)) {
+    if (host === 'youtu.be') {
+      id = u.pathname.split('/')[1];
+    } else if (['youtube.com', 'www.youtube.com', 'm.youtube.com', 'music.youtube.com', 'www.music.youtube.com', 'm.music.youtube.com', 'www.youtube-nocookie.com'].includes(host)) {
       id = u.searchParams.get('v') || (/\/(?:shorts|embed|live)\/([^/]+)/.exec(u.pathname) || [])[1];
     }
     return /^[\w-]{11}$/.test(id || '') ? id : null;
@@ -246,9 +253,14 @@ checkBackend();
 $('convert-form').onsubmit = async e => {
   e.preventDefault();
   if (converting) return;
-  const id = videoId($('audio-url').value);
+  const inputVal = ($('audio-url').value || '').trim();
+  const id = videoId(inputVal);
   if (!id) {
-    $('convert-message').textContent = 'Please paste a valid YouTube video link.';
+    if (inputVal.includes('list=') || inputVal.includes('/playlist')) {
+      $('convert-message').textContent = 'Playlists are not supported. Please paste a direct track or video link.';
+    } else {
+      $('convert-message').textContent = 'Please paste a valid YouTube or YouTube Music link.';
+    }
     return;
   }
   if (!await checkBackend()) return;

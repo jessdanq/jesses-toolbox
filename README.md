@@ -7,7 +7,8 @@ A modern, fast, and personal digital toolbox with everyday practice and media to
 ## Tools
 
 ### 1. YouTube to MP3 (`#mp3`)
-- Converts YouTube audio directly on your local computer using `yt-dlp` and `FFmpeg`.
+- Converts YouTube and YouTube Music audio directly on your local computer using `yt-dlp` and `FFmpeg`.
+- Supports standard YouTube (`youtube.com`, `youtu.be`) and YouTube Music (`music.youtube.com`) track links.
 - Selectable bitrates: **128 kbps**, **192 kbps**, and **320 kbps**.
 - Clean status indicators, progress tracking, and direct MP3 download.
 
