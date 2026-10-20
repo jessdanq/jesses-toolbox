@@ -200,6 +200,73 @@ label { display: block; font-size: 11px; color: var(--muted); }
 .shortcuts-grid span { font-size: 10px; display: flex; align-items: center; gap: 6px; color: #556050; }
 kbd { background: #ebeee6; border: 1px solid #d3d9cb; border-radius: 4px; padding: 1px 5px; font-size: 9px; font-family: monospace; box-shadow: 0 1px 0 #ccd0c5; color: var(--ink); font-weight: 700; }
 
+
+/* Instagram Follow-Back Checker Card & Art */
+.ig-card { background: #fceede; border-color: #eed5c7; }
+.ig-art { display: flex; align-items: center; justify-content: center; height: 160px; }
+.ig-art-wrap { display: flex; align-items: center; gap: 18px; }
+.ig-avatar-badge { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 13px; letter-spacing: 0.5px; border: 2px solid; }
+.ig-avatar-badge.user-a { background: #245342; color: #e5efcf; border-color: #1a3c30; }
+.ig-avatar-badge.user-b { background: #fff; color: #9c4b37; border-color: #e2a89c; }
+.ig-art-arrows { display: flex; flex-direction: column; align-items: center; font-size: 14px; font-weight: 800; color: #8e7c75; line-height: 1.1; }
+.arrow-out { color: #245342; font-size: 16px; }
+.arrow-in { color: #b84c34; font-size: 17px; }
+
+/* Instagram Checker Section Styles */
+.ig-guide-box { background: #fbfbf7; border: 1px solid #dcded4; border-radius: 12px; padding: 14px 20px; margin-bottom: 24px; }
+.ig-guide-box summary { font-weight: 600; font-size: 13px; color: var(--ink); cursor: pointer; user-select: none; }
+.ig-steps { margin: 12px 0 0 18px; padding: 0; font-size: 12px; line-height: 1.7; color: var(--muted); }
+.ig-steps code { background: #eef1ea; padding: 2px 6px; border-radius: 4px; font-size: 11px; color: var(--ink); }
+
+.ig-upload-container { margin-bottom: 32px; }
+.ig-dropzone { cursor: pointer; margin-bottom: 16px; }
+.ig-file-slots { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.ig-slot { background: #fff; border: 1px solid #d9ddcf; border-radius: 10px; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: border-color .2s, box-shadow .2s; }
+.ig-slot:hover { border-color: #245342; box-shadow: 0 4px 12px rgba(32, 60, 52, 0.05); }
+.ig-slot .slot-header { display: flex; align-items: center; gap: 12px; }
+.ig-slot .slot-icon { font-size: 20px; }
+.ig-slot strong { display: block; font-size: 13px; color: var(--ink); }
+.ig-slot .slot-name { display: block; font-size: 11px; color: var(--muted); margin-top: 2px; }
+.slot-badge { font-size: 10px; font-weight: 700; letter-spacing: 0.8px; padding: 4px 9px; border-radius: 12px; background: #eef0ea; color: #76806e; text-transform: uppercase; }
+.slot-badge.ready { background: #e3ede4; color: #245342; }
+
+/* Stats Grid */
+.ig-stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; margin-bottom: 28px; }
+.ig-stat-card { background: #fff; border: 1px solid #d9ddcf; border-radius: 12px; padding: 18px 20px; display: flex; flex-direction: column; gap: 4px; }
+.ig-stat-card .stat-label { font-size: 9px; font-weight: 700; letter-spacing: 1.5px; color: var(--muted); }
+.ig-stat-card .stat-value { font-family: Manrope, sans-serif; font-size: 32px; font-weight: 700; color: var(--ink); line-height: 1.1; margin: 4px 0; }
+.ig-stat-card .stat-sub { font-size: 11px; color: var(--muted); }
+.ig-stat-card.highlight-danger { border-color: #f1cfc8; background: #fdf6f4; }
+.ig-stat-card.highlight-danger .stat-value { color: #b83d25; }
+.ig-stat-card.highlight-info { border-color: #cee0e8; background: #f4f8fb; }
+.ig-stat-card.highlight-info .stat-value { color: #226487; }
+.ig-stat-card.highlight-success { border-color: #c7ded2; background: #f3f8f5; }
+.ig-stat-card.highlight-success .stat-value { color: #245342; }
+
+/* Analysis Panel */
+.ig-analysis-panel { background: #fff; border: 1px solid #d9ddcf; border-radius: 16px; padding: 24px; box-shadow: 0 4px 20px rgba(32, 60, 52, 0.03); }
+.ig-nav-bar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 16px; border-bottom: 1px solid var(--line); padding-bottom: 16px; margin-bottom: 16px; }
+.ig-tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+.ig-tab { background: #f6f5f1; border: 1px solid #dcded4; border-radius: 20px; padding: 7px 14px; font-size: 12px; font-weight: 600; color: #556050; cursor: pointer; transition: all .2s; }
+.ig-tab:hover { background: #ebeee6; }
+.ig-tab.active { background: #245342; color: #e5efcf; border-color: #245342; }
+.ig-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ig-search-input { border: 1px solid #ccd3c5; border-radius: 8px; padding: 8px 12px; font-size: 12px; background: #fbfbf7; color: var(--ink); width: 170px; }
+.ig-search-input:focus { outline: none; border-color: #245342; background: #fff; }
+.copy-hint { font-size: 11px; color: #245342; font-weight: 600; }
+
+.ig-list-header { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--muted); margin-bottom: 12px; font-weight: 500; }
+.ig-list-box { max-height: 480px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 4px; }
+.ig-user-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; border-radius: 8px; background: #fbfbf7; border: 1px solid #edf0e6; transition: background .15s; }
+.ig-user-row:hover { background: #f3f5ee; }
+.ig-user-info { display: flex; align-items: center; gap: 12px; }
+.ig-user-avatar { width: 34px; height: 34px; border-radius: 50%; background: #e5ecd9; color: #245342; display: grid; place-items: center; font-weight: 700; font-size: 13px; text-transform: uppercase; }
+.ig-user-name { font-weight: 600; font-size: 13px; color: var(--ink); }
+.ig-user-date { font-size: 11px; color: var(--muted); margin-left: 8px; }
+.ig-user-link { font-size: 11px; font-weight: 600; color: #245342; padding: 5px 11px; border-radius: 6px; background: #fff; border: 1px solid #ccd3c5; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; transition: all .15s; }
+.ig-user-link:hover { background: #245342; color: #fff; border-color: #245342; }
+.ig-empty-state { text-align: center; padding: 48px 20px; color: var(--muted); font-size: 13px; }
+
 @media(max-width: 960px) {
   .cards { grid-template-columns: 1fr; }
 }

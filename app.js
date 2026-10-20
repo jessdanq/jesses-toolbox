@@ -801,3 +801,320 @@ window.addEventListener('keydown', e => {
 
 // Initialize route now that all components are loaded
 route();
+
+/* =========================================================
+   --- Instagram Follow-Back Checker Logic ---
+   ========================================================= */
+let igFollowersMap = null;
+let igFollowingMap = null;
+let igCurrentTab = 'not-following-back';
+let igFilteredLists = {
+  'not-following-back': [],
+  'fans': [],
+  'mutuals': [],
+  'all-following': [],
+  'all-followers': []
+};
+
+function extractInstagramAccounts(jsonObj) {
+  const accounts = new Map();
+  function addEntry(username, href, timestamp) {
+    if (!username && href) {
+      const match = /instagram\.com\/([a-zA-Z0-9._]+)/.exec(href);
+      if (match) username = match[1];
+    }
+    if (!username) return;
+    username = String(username).trim().toLowerCase().replace(/^@/, '');
+    if (!username || username === 'unknown') return;
+    if (!accounts.has(username)) {
+      accounts.set(username, {
+        username: username,
+        url: href || 'https://www.instagram.com/' + username + '/',
+        timestamp: timestamp ? Number(timestamp) : null
+      });
+    }
+  }
+  function walk(node) {
+    if (!node) return;
+    if (Array.isArray(node)) {
+      for (const item of node) {
+        if (typeof item === 'string') {
+          addEntry(item, null, null);
+        } else if (item && typeof item === 'object') {
+          if (Array.isArray(item.string_list_data)) {
+            for (const s of item.string_list_data) {
+              addEntry(s.value || item.title, s.href, s.timestamp);
+            }
+          } else {
+            addEntry(item.value || item.title || item.username, item.href, item.timestamp);
+          }
+        }
+      }
+    } else if (typeof node === 'object') {
+      if (Array.isArray(node.relationships_following)) {
+        walk(node.relationships_following);
+      } else if (Array.isArray(node.relationships_followers)) {
+        walk(node.relationships_followers);
+      } else {
+        for (const key of Object.keys(node)) {
+          if (Array.isArray(node[key])) walk(node[key]);
+        }
+      }
+    }
+  }
+  walk(jsonObj);
+  return accounts;
+}
+
+function processInstagramJson(file, text) {
+  try {
+    const data = JSON.parse(text);
+    const accounts = extractInstagramAccounts(data);
+    const fname = file.name.toLowerCase();
+
+    const isFollowing = fname.includes('following') || (data && !!data.relationships_following);
+    const isFollowers = fname.includes('follower') || (data && !!data.relationships_followers);
+
+    if (isFollowing) {
+      igFollowingMap = accounts;
+      $('slot-following-name').textContent = file.name + ' (' + accounts.size + ' following)';
+      $('slot-following-badge').textContent = 'Ready ✓';
+      $('slot-following-badge').classList.add('ready');
+    } else if (isFollowers) {
+      igFollowersMap = accounts;
+      $('slot-followers-name').textContent = file.name + ' (' + accounts.size + ' followers)';
+      $('slot-followers-badge').textContent = 'Ready ✓';
+      $('slot-followers-badge').classList.add('ready');
+    } else {
+      // Guess by matching existing slot
+      if (!igFollowersMap) {
+        igFollowersMap = accounts;
+        $('slot-followers-name').textContent = file.name + ' (' + accounts.size + ' accounts)';
+        $('slot-followers-badge').textContent = 'Ready ✓';
+        $('slot-followers-badge').classList.add('ready');
+      } else {
+        igFollowingMap = accounts;
+        $('slot-following-name').textContent = file.name + ' (' + accounts.size + ' accounts)';
+        $('slot-following-badge').textContent = 'Ready ✓';
+        $('slot-following-badge').classList.add('ready');
+      }
+    }
+
+    if (igFollowersMap && igFollowingMap) {
+      computeInstagramComparison();
+    }
+  } catch (err) {
+    alert('Could not parse ' + file.name + ': ' + err.message);
+  }
+}
+
+function computeInstagramComparison() {
+  const notFollowingBack = [];
+  const fans = [];
+  const mutuals = [];
+  const allFollowing = Array.from(igFollowingMap.values());
+  const allFollowers = Array.from(igFollowersMap.values());
+
+  for (const [u, d] of igFollowingMap) {
+    if (!igFollowersMap.has(u)) {
+      notFollowingBack.push(d);
+    } else {
+      mutuals.push(d);
+    }
+  }
+
+  for (const [u, d] of igFollowersMap) {
+    if (!igFollowingMap.has(u)) {
+      fans.push(d);
+    }
+  }
+
+  // Sort alphabetically
+  const sortAlpha = (a, b) => a.username.localeCompare(b.username);
+  notFollowingBack.sort(sortAlpha);
+  fans.sort(sortAlpha);
+  mutuals.sort(sortAlpha);
+  allFollowing.sort(sortAlpha);
+  allFollowers.sort(sortAlpha);
+
+  igFilteredLists['not-following-back'] = notFollowingBack;
+  igFilteredLists['fans'] = fans;
+  igFilteredLists['mutuals'] = mutuals;
+  igFilteredLists['all-following'] = allFollowing;
+  igFilteredLists['all-followers'] = allFollowers;
+
+  // Update stat counters
+  $('stat-following').textContent = allFollowing.length.toLocaleString();
+  $('stat-followers').textContent = allFollowers.length.toLocaleString();
+  $('stat-not-following-back').textContent = notFollowingBack.length.toLocaleString();
+  $('stat-fans').textContent = fans.length.toLocaleString();
+  $('stat-mutuals').textContent = mutuals.length.toLocaleString();
+
+  // Tab counter badges
+  $('tab-cnt-nfb').textContent = notFollowingBack.length;
+  $('tab-cnt-fans').textContent = fans.length;
+  $('tab-cnt-mutuals').textContent = mutuals.length;
+  $('tab-cnt-following').textContent = allFollowing.length;
+  $('tab-cnt-followers').textContent = allFollowers.length;
+
+  $('ig-results').hidden = false;
+  renderInstagramList();
+}
+
+function renderInstagramList() {
+  const container = $('ig-list-container');
+  container.innerHTML = '';
+  const query = ($('ig-search').value || '').trim().toLowerCase();
+  const list = (igFilteredLists[igCurrentTab] || []).filter(item => {
+    return !query || item.username.toLowerCase().includes(query);
+  });
+
+  $('ig-list-count').textContent = 'Showing ' + list.length + ' accounts';
+
+  if (!list.length) {
+    const empty = document.createElement('div');
+    empty.className = 'ig-empty-state';
+    empty.textContent = query ? 'No usernames match "' + query + '".' : 'No accounts in this list.';
+    container.appendChild(empty);
+    return;
+  }
+
+  for (const item of list) {
+    const row = document.createElement('div');
+    row.className = 'ig-user-row';
+
+    const info = document.createElement('div');
+    info.className = 'ig-user-info';
+
+    const avatar = document.createElement('div');
+    avatar.className = 'ig-user-avatar';
+    avatar.textContent = item.username.charAt(0);
+
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'ig-user-name';
+    nameSpan.textContent = '@' + item.username;
+
+    info.appendChild(avatar);
+    info.appendChild(nameSpan);
+
+    if (item.timestamp) {
+      const dateSpan = document.createElement('span');
+      dateSpan.className = 'ig-user-date';
+      const d = new Date(item.timestamp * 1000);
+      dateSpan.textContent = 'Followed ' + d.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+      info.appendChild(dateSpan);
+    }
+
+    const link = document.createElement('a');
+    link.className = 'ig-user-link';
+    link.href = item.url;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.textContent = 'View on Instagram ↗';
+
+    row.appendChild(info);
+    row.appendChild(link);
+    container.appendChild(row);
+  }
+}
+
+// Event Listeners for Instagram Follow Checker
+const igDropzone = $('ig-combined-dropzone');
+const igFileInput = $('ig-file-input');
+
+if (igDropzone && igFileInput) {
+  ['dragenter', 'dragover'].forEach(name => {
+    igDropzone.addEventListener(name, e => {
+      e.preventDefault();
+      igDropzone.classList.add('dragover');
+    });
+  });
+  ['dragleave', 'drop'].forEach(name => {
+    igDropzone.addEventListener(name, e => {
+      e.preventDefault();
+      igDropzone.classList.remove('dragover');
+    });
+  });
+
+  igDropzone.addEventListener('drop', e => {
+    const files = Array.from(e.dataTransfer?.files || []);
+    for (const f of files) {
+      if (f.name.endsWith('.json')) {
+        f.text().then(txt => processInstagramJson(f, txt));
+      }
+    }
+  });
+
+  igFileInput.addEventListener('change', e => {
+    const files = Array.from(e.target.files || []);
+    for (const f of files) {
+      f.text().then(txt => processInstagramJson(f, txt));
+    }
+    igFileInput.value = '';
+  });
+
+  // Slot clicks trigger file picker
+  $('slot-followers').onclick = () => igFileInput.click();
+  $('slot-following').onclick = () => igFileInput.click();
+
+  // Tab switching
+  document.querySelectorAll('.ig-tab').forEach(tabBtn => {
+    tabBtn.onclick = () => {
+      document.querySelectorAll('.ig-tab').forEach(b => b.classList.remove('active'));
+      tabBtn.classList.add('active');
+      igCurrentTab = tabBtn.dataset.tab;
+      renderInstagramList();
+    };
+  });
+
+  // Search input
+  $('ig-search').oninput = () => renderInstagramList();
+
+  // Copy list button
+  $('ig-copy-btn').onclick = async () => {
+    const query = ($('ig-search').value || '').trim().toLowerCase();
+    const list = (igFilteredLists[igCurrentTab] || []).filter(item => {
+      return !query || item.username.toLowerCase().includes(query);
+    });
+    const usernames = list.map(item => '@' + item.username).join('\n');
+    try {
+      await navigator.clipboard.writeText(usernames);
+      const hint = $('ig-copy-feedback');
+      hint.hidden = false;
+      setTimeout(() => hint.hidden = true, 2500);
+    } catch {
+      prompt('Copy usernames below:', usernames);
+    }
+  };
+
+  // Export CSV button
+  $('ig-csv-btn').onclick = () => {
+    const list = igFilteredLists[igCurrentTab] || [];
+    let csv = 'username,url,followed_date\n';
+    for (const item of list) {
+      const date = item.timestamp ? new Date(item.timestamp * 1000).toISOString() : '';
+      csv += item.username + ',' + item.url + ',' + date + '\n';
+    }
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const u = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = u;
+    a.download = 'instagram-' + igCurrentTab + '.csv';
+    a.click();
+    URL.revokeObjectURL(u);
+  };
+
+  // Reset button
+  $('ig-reset-btn').onclick = () => {
+    igFollowersMap = null;
+    igFollowingMap = null;
+    $('slot-followers-name').textContent = 'Waiting for followers_1.json…';
+    $('slot-followers-badge').textContent = 'Missing';
+    $('slot-followers-badge').classList.remove('ready');
+    $('slot-following-name').textContent = 'Waiting for following.json…';
+    $('slot-following-badge').textContent = 'Missing';
+    $('slot-following-badge').classList.remove('ready');
+    $('ig-results').hidden = true;
+    $('ig-search').value = '';
+  };
+}

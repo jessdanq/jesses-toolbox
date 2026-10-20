@@ -33,6 +33,13 @@ A modern, fast, and personal digital toolbox with everyday practice and media to
   - <kbd>0</kbd>: Jump to Point A
   - <kbd>M</kbd>: Mute / Unmute
 
+### 4. Instagram Follow-Back Checker (`#ig-checker`)
+- Find out who doesn't follow you back, see fans/admirers, and view mutual follows.
+- **100% On-Device & Safe**: Uses your official Instagram data download (`followers_1.json` & `following.json`).
+- **Zero Credentials & Zero Ban Risk**: No passwords, cookies, or account connections required; runs completely offline in your browser.
+- **Interactive Tools**: Live search filtering, one-click username list copying, and CSV export.
+
+
 ---
 
 ## Getting Started
