@@ -182,6 +182,40 @@ class ToolboxServer(ThreadingHTTPServer):
             job['finished'] = time.time()
             job['active'] = False
 
+
+def verify_instagram_user(username):
+    username = username.strip().lower()
+    if username in ('instagram_user', 'facebook_user') or username.isdigit() or len(username) > 100:
+        return {'username': username, 'exists': False, 'reason': 'placeholder'}
+    import urllib.request
+    import ssl
+    url = f'https://www.instagram.com/{username}/'
+    headers = {
+        'User-Agent': 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+    }
+    req = urllib.request.Request(url, headers=headers)
+    try:
+        ctx = ssl.create_default_context()
+        with urllib.request.urlopen(req, context=ctx, timeout=7) as resp:
+            content = resp.read().decode('utf-8', errors='ignore')
+            title_m = re.search(r'<title>(.*?)</title>', content, re.IGNORECASE)
+            title = title_m.group(1) if title_m else ''
+            lower_title = title.lower()
+            has_user = f'&#064;{username}' in lower_title or f'@{username}' in lower_title or f'({username})' in lower_title
+            og_desc = 'og:description' in content
+            exists = bool(has_user or og_desc)
+            return {'username': username, 'exists': exists, 'checked': True}
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            return {'username': username, 'exists': False, 'checked': True}
+        if e.code == 429:
+            return {'username': username, 'error': 'Rate limited by Instagram', 'rate_limited': True}
+        return {'username': username, 'error': f'HTTP {e.code}'}
+    except Exception as e:
+        return {'username': username, 'error': str(e)}
+
 class Handler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(ROOT), **kwargs)
@@ -204,6 +238,15 @@ class Handler(SimpleHTTPRequestHandler):
         if not self.valid_host():
             return self.json_response(403, {'error': 'Use the local address printed by the launcher.'})
         path = urlparse(self.path).path
+        if path == '/api/ig/verify':
+            if not self.authenticated():
+                return self.json_response(403, {'error': 'Refresh the toolbox and try again.'})
+            query = parse_qs(urlparse(self.path).query)
+            user = query.get('username', [''])[0].strip().lower()
+            if not re.fullmatch(r'[a-zA-Z0-9._]{1,100}', user):
+                return self.json_response(400, {'error': 'Enter a valid Instagram username.'})
+            result = verify_instagram_user(user)
+            return self.json_response(200, result)
         if path == '/api/health':
             missing = dependency_status()
             return self.json_response(200, {'ready': not missing, 'missing': missing, 'token': self.server.token})

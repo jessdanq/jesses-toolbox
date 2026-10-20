@@ -806,16 +806,46 @@ route();
 /* =========================================================
    --- Instagram Follow-Back Checker Logic ---
    ========================================================= */
+const IG_CACHE_KEY = 'jesses_toolbox_ig_cache_v2';
 let igFollowersMap = null;
 let igFollowingMap = null;
 let igCurrentTab = 'not-following-back';
+let igHideInactive = true;
+let trickleRunning = false;
+let trickleAbort = false;
+
 let igFilteredLists = {
   'not-following-back': [],
   'fans': [],
   'mutuals': [],
+  'inactive': [],
   'all-following': [],
   'all-followers': []
 };
+
+function getIgCache() {
+  try {
+    return JSON.parse(localStorage.getItem(IG_CACHE_KEY) || '{}');
+  } catch {
+    return {};
+  }
+}
+
+function saveIgCache(cache) {
+  try {
+    localStorage.setItem(IG_CACHE_KEY, JSON.stringify(cache));
+  } catch {}
+}
+
+function updateAccountStatus(username, status) {
+  const cache = getIgCache();
+  cache[username.toLowerCase()] = { status, timestamp: Date.now() };
+  saveIgCache(cache);
+}
+
+function isPlaceholderUser(u) {
+  return u === 'instagram_user' || u === 'facebook_user' || /^\d+$/.test(u) || !u;
+}
 
 function extractInstagramAccounts(jsonObj) {
   const accounts = new Map();
@@ -887,7 +917,6 @@ function processInstagramJson(file, text) {
       $('slot-followers-badge').textContent = 'Ready ✓';
       $('slot-followers-badge').classList.add('ready');
     } else {
-      // Guess by matching existing slot
       if (!igFollowersMap) {
         igFollowersMap = accounts;
         $('slot-followers-name').textContent = file.name + ' (' + accounts.size + ' accounts)';
@@ -910,15 +939,22 @@ function processInstagramJson(file, text) {
 }
 
 function computeInstagramComparison() {
-  const notFollowingBack = [];
+  const cache = getIgCache();
+  const rawNotFollowingBack = [];
   const fans = [];
   const mutuals = [];
+  const inactive = [];
   const allFollowing = Array.from(igFollowingMap.values());
   const allFollowers = Array.from(igFollowersMap.values());
 
   for (const [u, d] of igFollowingMap) {
     if (!igFollowersMap.has(u)) {
-      notFollowingBack.push(d);
+      // Check if known placeholder or marked inactive in cache
+      if (isPlaceholderUser(u) || cache[u]?.status === 'inactive') {
+        inactive.push(d);
+      } else {
+        rawNotFollowingBack.push(d);
+      }
     } else {
       mutuals.push(d);
     }
@@ -930,31 +966,33 @@ function computeInstagramComparison() {
     }
   }
 
-  // Sort alphabetically
   const sortAlpha = (a, b) => a.username.localeCompare(b.username);
-  notFollowingBack.sort(sortAlpha);
+  rawNotFollowingBack.sort(sortAlpha);
   fans.sort(sortAlpha);
   mutuals.sort(sortAlpha);
+  inactive.sort(sortAlpha);
   allFollowing.sort(sortAlpha);
   allFollowers.sort(sortAlpha);
 
-  igFilteredLists['not-following-back'] = notFollowingBack;
+  igFilteredLists['not-following-back'] = rawNotFollowingBack;
   igFilteredLists['fans'] = fans;
   igFilteredLists['mutuals'] = mutuals;
+  igFilteredLists['inactive'] = inactive;
   igFilteredLists['all-following'] = allFollowing;
   igFilteredLists['all-followers'] = allFollowers;
 
-  // Update stat counters
+  // Stat counters
   $('stat-following').textContent = allFollowing.length.toLocaleString();
   $('stat-followers').textContent = allFollowers.length.toLocaleString();
-  $('stat-not-following-back').textContent = notFollowingBack.length.toLocaleString();
+  $('stat-not-following-back').textContent = rawNotFollowingBack.length.toLocaleString();
   $('stat-fans').textContent = fans.length.toLocaleString();
   $('stat-mutuals').textContent = mutuals.length.toLocaleString();
 
-  // Tab counter badges
-  $('tab-cnt-nfb').textContent = notFollowingBack.length;
+  // Tab count badges
+  $('tab-cnt-nfb').textContent = rawNotFollowingBack.length;
   $('tab-cnt-fans').textContent = fans.length;
   $('tab-cnt-mutuals').textContent = mutuals.length;
+  $('tab-cnt-inactive').textContent = inactive.length;
   $('tab-cnt-following').textContent = allFollowing.length;
   $('tab-cnt-followers').textContent = allFollowers.length;
 
@@ -966,9 +1004,12 @@ function renderInstagramList() {
   const container = $('ig-list-container');
   container.innerHTML = '';
   const query = ($('ig-search').value || '').trim().toLowerCase();
-  const list = (igFilteredLists[igCurrentTab] || []).filter(item => {
-    return !query || item.username.toLowerCase().includes(query);
-  });
+  const cache = getIgCache();
+
+  let list = igFilteredLists[igCurrentTab] || [];
+  if (query) {
+    list = list.filter(item => item.username.toLowerCase().includes(query));
+  }
 
   $('ig-list-count').textContent = 'Showing ' + list.length + ' accounts';
 
@@ -995,8 +1036,15 @@ function renderInstagramList() {
     nameSpan.className = 'ig-user-name';
     nameSpan.textContent = '@' + item.username;
 
+    // Status pill
+    const userStatus = cache[item.username]?.status;
+    const pill = document.createElement('span');
+    pill.className = 'ig-status-pill ' + (userStatus === 'active' ? 'pill-active' : (userStatus === 'inactive' ? 'pill-inactive' : 'pill-unverified'));
+    pill.textContent = userStatus === 'active' ? 'Active' : (userStatus === 'inactive' ? 'Inactive' : 'Unchecked');
+
     info.appendChild(avatar);
     info.appendChild(nameSpan);
+    info.appendChild(pill);
 
     if (item.timestamp) {
       const dateSpan = document.createElement('span');
@@ -1006,16 +1054,142 @@ function renderInstagramList() {
       info.appendChild(dateSpan);
     }
 
+    const actions = document.createElement('div');
+    actions.className = 'ig-user-actions';
+
+    if (igCurrentTab === 'inactive') {
+      const restoreBtn = document.createElement('button');
+      restoreBtn.type = 'button';
+      restoreBtn.className = 'ig-action-sm-btn restore-btn';
+      restoreBtn.textContent = 'Restore ↺';
+      restoreBtn.onclick = () => {
+        updateAccountStatus(item.username, 'active');
+        computeInstagramComparison();
+      };
+      actions.appendChild(restoreBtn);
+    } else {
+      const verifyBtn = document.createElement('button');
+      verifyBtn.type = 'button';
+      verifyBtn.className = 'ig-action-sm-btn';
+      verifyBtn.textContent = 'Verify';
+      verifyBtn.title = 'Check if this account still exists on Instagram';
+      verifyBtn.onclick = async () => {
+        verifyBtn.disabled = true;
+        verifyBtn.textContent = 'Checking…';
+        pill.className = 'ig-status-pill pill-checking';
+        pill.textContent = 'Checking…';
+        try {
+          const res = await api('/api/ig/verify?username=' + encodeURIComponent(item.username));
+          if (res.rate_limited) {
+            alert('Instagram rate limit encountered. Please wait a bit before checking again.');
+            return;
+          }
+          const st = res.exists ? 'active' : 'inactive';
+          updateAccountStatus(item.username, st);
+          computeInstagramComparison();
+        } catch (e) {
+          alert('Could not verify @' + item.username + ': ' + e.message);
+          computeInstagramComparison();
+        }
+      };
+      actions.appendChild(verifyBtn);
+
+      const dismissBtn = document.createElement('button');
+      dismissBtn.type = 'button';
+      dismissBtn.className = 'ig-action-sm-btn dismiss-btn';
+      dismissBtn.textContent = '✕ Dismiss';
+      dismissBtn.title = 'Mark as inactive and hide from this list';
+      dismissBtn.onclick = () => {
+        updateAccountStatus(item.username, 'inactive');
+        computeInstagramComparison();
+      };
+      actions.appendChild(dismissBtn);
+    }
+
     const link = document.createElement('a');
-    link.className = 'ig-user-link';
+    link.className = 'ig-action-sm-btn';
     link.href = item.url;
     link.target = '_blank';
     link.rel = 'noopener noreferrer';
-    link.textContent = 'View on Instagram ↗';
+    link.textContent = 'Instagram ↗';
 
+    actions.appendChild(link);
     row.appendChild(info);
-    row.appendChild(link);
+    row.appendChild(actions);
     container.appendChild(row);
+  }
+}
+
+// Trickle Checker Logic
+async function toggleTrickleCheck() {
+  const btn = $('ig-trickle-toggle-btn');
+  const dot = $('ig-pulse-dot');
+  const statusText = $('ig-trickle-status-text');
+  const progressWrap = $('ig-progress-wrap');
+  const progressFill = $('ig-progress-fill');
+
+  if (trickleRunning) {
+    trickleAbort = true;
+    trickleRunning = false;
+    btn.textContent = '▶ Resume Trickle Check';
+    btn.classList.remove('running');
+    dot.classList.remove('running');
+    statusText.textContent = 'Trickle check paused.';
+    return;
+  }
+
+  const cache = getIgCache();
+  const queue = (igFilteredLists['not-following-back'] || []).filter(u => {
+    return !cache[u.username] || (cache[u.username].status !== 'active' && cache[u.username].status !== 'inactive');
+  });
+
+  if (!queue.length) {
+    statusText.textContent = 'All accounts in this list have already been checked!';
+    return;
+  }
+
+  trickleRunning = true;
+  trickleAbort = false;
+  btn.textContent = '⏸ Pause Check';
+  btn.classList.add('running');
+  dot.classList.add('running');
+  progressWrap.hidden = false;
+
+  let inactiveFound = 0;
+  const total = queue.length;
+
+  for (let i = 0; i < queue.length; i++) {
+    if (trickleAbort) break;
+    const user = queue[i];
+    const pct = Math.round(((i + 1) / total) * 100);
+    progressFill.style.width = pct + '%';
+    statusText.textContent = 'Checking ' + (i + 1) + ' / ' + total + ' (@' + user.username + ') • ' + inactiveFound + ' inactive accounts found so far…';
+
+    try {
+      const res = await api('/api/ig/verify?username=' + encodeURIComponent(user.username));
+      if (res.rate_limited) {
+        statusText.textContent = 'Instagram rate limit encountered. Pausing trickle check automatically.';
+        break;
+      }
+      const st = res.exists ? 'active' : 'inactive';
+      if (!res.exists) inactiveFound++;
+      updateAccountStatus(user.username, st);
+      computeInstagramComparison();
+    } catch (e) {
+      console.warn('Error checking @' + user.username, e);
+    }
+
+    // Safe gentle pause between checks (2.6 seconds)
+    await new Promise(r => setTimeout(r, 2600));
+  }
+
+  trickleRunning = false;
+  btn.textContent = '▶ Start Trickle Check';
+  btn.classList.remove('running');
+  dot.classList.remove('running');
+  if (!trickleAbort) {
+    statusText.textContent = 'Trickle check completed! Found ' + inactiveFound + ' inactive/deleted accounts.';
+    setTimeout(() => { progressWrap.hidden = true; }, 3000);
   }
 }
 
@@ -1054,7 +1228,6 @@ if (igDropzone && igFileInput) {
     igFileInput.value = '';
   });
 
-  // Slot clicks trigger file picker
   $('slot-followers').onclick = () => igFileInput.click();
   $('slot-following').onclick = () => igFileInput.click();
 
@@ -1067,6 +1240,15 @@ if (igDropzone && igFileInput) {
       renderInstagramList();
     };
   });
+
+  // Hide inactive toggle
+  $('ig-hide-inactive-toggle').onchange = (e) => {
+    igHideInactive = e.target.checked;
+    computeInstagramComparison();
+  };
+
+  // Trickle check button
+  $('ig-trickle-toggle-btn').onclick = toggleTrickleCheck;
 
   // Search input
   $('ig-search').oninput = () => renderInstagramList();
@@ -1091,10 +1273,12 @@ if (igDropzone && igFileInput) {
   // Export CSV button
   $('ig-csv-btn').onclick = () => {
     const list = igFilteredLists[igCurrentTab] || [];
-    let csv = 'username,url,followed_date\n';
+    const cache = getIgCache();
+    let csv = 'username,url,status,followed_date\n';
     for (const item of list) {
       const date = item.timestamp ? new Date(item.timestamp * 1000).toISOString() : '';
-      csv += item.username + ',' + item.url + ',' + date + '\n';
+      const st = cache[item.username]?.status || 'unverified';
+      csv += item.username + ',' + item.url + ',' + st + ',' + date + '\n';
     }
     const blob = new Blob([csv], { type: 'text/csv' });
     const u = URL.createObjectURL(blob);
@@ -1107,6 +1291,7 @@ if (igDropzone && igFileInput) {
 
   // Reset button
   $('ig-reset-btn').onclick = () => {
+    if (trickleRunning) toggleTrickleCheck();
     igFollowersMap = null;
     igFollowingMap = null;
     $('slot-followers-name').textContent = 'Waiting for followers_1.json…';

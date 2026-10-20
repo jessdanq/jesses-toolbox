@@ -267,6 +267,37 @@ kbd { background: #ebeee6; border: 1px solid #d3d9cb; border-radius: 4px; paddin
 .ig-user-link:hover { background: #245342; color: #fff; border-color: #245342; }
 .ig-empty-state { text-align: center; padding: 48px 20px; color: var(--muted); font-size: 13px; }
 
+
+/* Trickle Checker & Verification Styles */
+.ig-trickle-banner { background: #fdfdf9; border: 1px solid #dcded4; border-radius: 12px; padding: 14px 18px; margin-bottom: 18px; display: flex; flex-direction: column; gap: 10px; }
+.ig-trickle-top { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+.ig-trickle-title { font-size: 13px; font-weight: 700; color: var(--ink); display: flex; align-items: center; gap: 8px; }
+.ig-trickle-title span.pulse-dot { width: 8px; height: 8px; border-radius: 50%; background: #245342; display: inline-block; }
+.ig-trickle-title span.pulse-dot.running { background: #d9482b; animation: pulse 1s infinite; }
+@keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+.ig-trickle-stats { font-size: 11px; color: var(--muted); }
+.ig-trickle-controls { display: flex; align-items: center; gap: 10px; }
+.ig-trickle-btn { background: #245342; color: #fff; border: none; border-radius: 6px; padding: 7px 15px; font-size: 12px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: background .15s; }
+.ig-trickle-btn:hover { background: #1a3c30; }
+.ig-trickle-btn.running { background: #b83d25; }
+.ig-progress-bar-wrap { width: 100%; height: 6px; background: #e8eae1; border-radius: 4px; overflow: hidden; }
+.ig-progress-bar-fill { height: 100%; background: #245342; width: 0%; transition: width .3s; }
+.ig-filter-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: #435142; cursor: pointer; user-select: none; }
+.ig-filter-toggle input { accent-color: #245342; cursor: pointer; width: 15px; height: 15px; }
+
+/* Status Pills & Actions */
+.ig-status-pill { font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 10px; text-transform: uppercase; letter-spacing: 0.5px; margin-left: 8px; }
+.pill-active { background: #e3ede4; color: #245342; }
+.pill-inactive { background: #fdf0ed; color: #b83d25; }
+.pill-unverified { background: #edf0ea; color: #828a7e; }
+.pill-checking { background: #fbf0d8; color: #9c6c10; }
+.ig-user-actions { display: flex; align-items: center; gap: 6px; }
+.ig-action-sm-btn { background: #fff; border: 1px solid #ccd3c5; border-radius: 6px; padding: 5px 9px; font-size: 11px; color: var(--ink); cursor: pointer; transition: all .15s; font-weight: 600; text-decoration: none; }
+.ig-action-sm-btn:hover { background: #eef1ea; border-color: #245342; }
+.ig-action-sm-btn.dismiss-btn:hover { background: #fdf0ed; border-color: #b83d25; color: #b83d25; }
+.ig-action-sm-btn.restore-btn { background: #f0f7f2; border-color: #245342; color: #245342; }
+.ig-action-sm-btn.restore-btn:hover { background: #245342; color: #fff; }
+
 @media(max-width: 960px) {
   .cards { grid-template-columns: 1fr; }
 }
