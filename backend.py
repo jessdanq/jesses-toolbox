@@ -183,10 +183,45 @@ class ToolboxServer(ThreadingHTTPServer):
             job['active'] = False
 
 
+IG_CACHE_FILE = ROOT / 'instagram_cache.json'
+
+def load_ig_cache():
+    if IG_CACHE_FILE.exists():
+        try:
+            data = json.loads(IG_CACHE_FILE.read_text(encoding='utf-8'))
+            if isinstance(data, dict):
+                data.setdefault('accounts', {})
+                data.setdefault('followers', [])
+                data.setdefault('following', [])
+                data.setdefault('lastUpdated', None)
+                return data
+        except (OSError, ValueError):
+            pass
+    return {'accounts': {}, 'followers': [], 'following': [], 'lastUpdated': None}
+
+def save_ig_cache(data):
+    temporary = ROOT / 'instagram_cache.tmp'
+    temporary.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding='utf-8')
+    for attempt in range(6):
+        try:
+            temporary.replace(IG_CACHE_FILE)
+            break
+        except PermissionError:
+            if attempt == 5:
+                raise
+            time.sleep(.03)
+
 def verify_instagram_user(username):
     username = username.strip().lower()
     if username in ('instagram_user', 'facebook_user') or username.isdigit() or len(username) > 100:
-        return {'username': username, 'exists': False, 'reason': 'placeholder'}
+        res = {'username': username, 'exists': False, 'reason': 'placeholder'}
+        try:
+            current = load_ig_cache()
+            current['accounts'][username] = {'status': 'inactive', 'reason': 'placeholder', 'timestamp': int(time.time() * 1000)}
+            save_ig_cache(current)
+        except Exception:
+            pass
+        return res
     import urllib.request
     import ssl
     url = f'https://www.instagram.com/{username}/'
@@ -206,10 +241,24 @@ def verify_instagram_user(username):
             has_user = f'&#064;{username}' in lower_title or f'@{username}' in lower_title or f'({username})' in lower_title
             og_desc = 'og:description' in content
             exists = bool(has_user or og_desc)
-            return {'username': username, 'exists': exists, 'checked': True}
+            res = {'username': username, 'exists': exists, 'checked': True}
+            try:
+                current = load_ig_cache()
+                current['accounts'][username] = {'status': 'active' if exists else 'inactive', 'timestamp': int(time.time() * 1000)}
+                save_ig_cache(current)
+            except Exception:
+                pass
+            return res
     except urllib.error.HTTPError as e:
         if e.code == 404:
-            return {'username': username, 'exists': False, 'checked': True}
+            res = {'username': username, 'exists': False, 'checked': True}
+            try:
+                current = load_ig_cache()
+                current['accounts'][username] = {'status': 'inactive', 'timestamp': int(time.time() * 1000)}
+                save_ig_cache(current)
+            except Exception:
+                pass
+            return res
         if e.code == 429:
             return {'username': username, 'error': 'Rate limited by Instagram', 'rate_limited': True}
         return {'username': username, 'error': f'HTTP {e.code}'}
@@ -238,6 +287,10 @@ class Handler(SimpleHTTPRequestHandler):
         if not self.valid_host():
             return self.json_response(403, {'error': 'Use the local address printed by the launcher.'})
         path = urlparse(self.path).path
+        if path == '/api/ig/data':
+            if not self.authenticated():
+                return self.json_response(403, {'error': 'Refresh the toolbox and try again.'})
+            return self.json_response(200, load_ig_cache())
         if path == '/api/ig/verify':
             if not self.authenticated():
                 return self.json_response(403, {'error': 'Refresh the toolbox and try again.'})
@@ -289,7 +342,29 @@ class Handler(SimpleHTTPRequestHandler):
     def do_POST(self):
         if not self.authenticated():
             return self.json_response(403, {'error': 'Refresh the toolbox and try again.'})
-        if self.path != '/api/jobs':
+        path = urlparse(self.path).path
+        if path == '/api/ig/data':
+            try:
+                length = int(self.headers.get('Content-Length', '0'))
+                if not 0 < length <= 30 * 1024 * 1024:
+                    raise ValueError('Request size exceeds 30 MB limit.')
+                payload = json.loads(self.rfile.read(length))
+                if not isinstance(payload, dict):
+                    raise ValueError('Expected JSON object.')
+                current = load_ig_cache()
+                if 'accounts' in payload and isinstance(payload['accounts'], dict):
+                    current['accounts'].update(payload['accounts'])
+                if 'followers' in payload and isinstance(payload['followers'], list):
+                    current['followers'] = payload['followers']
+                if 'following' in payload and isinstance(payload['following'], list):
+                    current['following'] = payload['following']
+                if 'lastUpdated' in payload:
+                    current['lastUpdated'] = payload['lastUpdated']
+                save_ig_cache(current)
+                return self.json_response(200, {'ok': True, 'saved': True})
+            except Exception as e:
+                return self.json_response(400, {'error': f'Could not save Instagram data: {str(e)}'})
+        if path != '/api/jobs':
             return self.send_error(404)
         try:
             length = int(self.headers.get('Content-Length', '0'))

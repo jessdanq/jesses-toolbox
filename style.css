@@ -298,6 +298,12 @@ kbd { background: #ebeee6; border: 1px solid #d3d9cb; border-radius: 4px; paddin
 .ig-action-sm-btn.restore-btn { background: #f0f7f2; border-color: #245342; color: #245342; }
 .ig-action-sm-btn.restore-btn:hover { background: #245342; color: #fff; }
 
+
+.ig-repo-bar { display: flex; justify-content: space-between; align-items: center; background: #fbfbf7; border: 1px solid #dcded4; border-radius: 10px; padding: 10px 16px; margin-bottom: 22px; font-size: 12px; color: var(--ink); flex-wrap: wrap; gap: 10px; }
+.ig-repo-info { display: flex; align-items: center; gap: 10px; }
+.ig-repo-info code { background: #eef1ea; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 700; color: #245342; }
+.ig-sync-status { color: #5a6b57; font-weight: 600; font-size: 11px; }
+
 @media(max-width: 960px) {
   .cards { grid-template-columns: 1fr; }
 }

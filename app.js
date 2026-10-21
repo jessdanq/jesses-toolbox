@@ -806,13 +806,14 @@ route();
 /* =========================================================
    --- Instagram Follow-Back Checker Logic ---
    ========================================================= */
-const IG_CACHE_KEY = 'jesses_toolbox_ig_cache_v2';
 let igFollowersMap = null;
 let igFollowingMap = null;
+let igAccountsCache = {};
 let igCurrentTab = 'not-following-back';
 let igHideInactive = true;
 let trickleRunning = false;
 let trickleAbort = false;
+let igDataLoadedFromDisk = false;
 
 let igFilteredLists = {
   'not-following-back': [],
@@ -823,24 +824,65 @@ let igFilteredLists = {
   'all-followers': []
 };
 
-function getIgCache() {
+function showSaveStatus(text) {
+  const el = $('ig-save-status-text');
+  if (el) el.textContent = text;
+}
+
+async function persistInstagramData(updates) {
   try {
-    return JSON.parse(localStorage.getItem(IG_CACHE_KEY) || '{}');
-  } catch {
-    return {};
+    await api('/api/ig/data', {
+      method: 'POST',
+      body: JSON.stringify(updates)
+    });
+    showSaveStatus('Saved to instagram_cache.json ✓');
+  } catch (err) {
+    console.error('Failed to save Instagram cache:', err);
+    showSaveStatus('Error saving to repository');
   }
 }
 
-function saveIgCache(cache) {
+async function loadInstagramDataFromDisk() {
   try {
-    localStorage.setItem(IG_CACHE_KEY, JSON.stringify(cache));
-  } catch {}
+    showSaveStatus('Loading from repository…');
+    const data = await api('/api/ig/data');
+    if (data && typeof data === 'object') {
+      igAccountsCache = data.accounts || {};
+      if (Array.isArray(data.followers) && data.followers.length &&
+          Array.isArray(data.following) && data.following.length) {
+        igFollowersMap = new Map(data.followers.map(f => [f.username, f]));
+        igFollowingMap = new Map(data.following.map(f => [f.username, f]));
+
+        $('slot-followers-name').textContent = 'Saved in repo (' + igFollowersMap.size + ' followers)';
+        $('slot-followers-badge').textContent = 'Repo ✓';
+        $('slot-followers-badge').classList.add('ready');
+
+        $('slot-following-name').textContent = 'Saved in repo (' + igFollowingMap.size + ' following)';
+        $('slot-following-badge').textContent = 'Repo ✓';
+        $('slot-following-badge').classList.add('ready');
+
+        igDataLoadedFromDisk = true;
+        computeInstagramComparison();
+        const dateStr = data.lastUpdated ? new Date(data.lastUpdated).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+        showSaveStatus('Loaded from instagram_cache.json ' + (dateStr ? '(' + dateStr + ') ' : '') + '✓');
+      } else {
+        showSaveStatus('Ready (drop files to save into instagram_cache.json)');
+      }
+    }
+  } catch (err) {
+    console.warn('Could not load Instagram cache from disk:', err);
+    showSaveStatus('Ready for files');
+  }
 }
 
 function updateAccountStatus(username, status) {
-  const cache = getIgCache();
-  cache[username.toLowerCase()] = { status, timestamp: Date.now() };
-  saveIgCache(cache);
+  username = username.toLowerCase();
+  igAccountsCache[username] = { status, timestamp: Date.now() };
+  persistInstagramData({
+    accounts: {
+      [username]: { status, timestamp: Date.now() }
+    }
+  });
 }
 
 function isPlaceholderUser(u) {
@@ -932,6 +974,11 @@ function processInstagramJson(file, text) {
 
     if (igFollowersMap && igFollowingMap) {
       computeInstagramComparison();
+      persistInstagramData({
+        followers: Array.from(igFollowersMap.values()),
+        following: Array.from(igFollowingMap.values()),
+        lastUpdated: new Date().toISOString()
+      });
     }
   } catch (err) {
     alert('Could not parse ' + file.name + ': ' + err.message);
@@ -939,7 +986,6 @@ function processInstagramJson(file, text) {
 }
 
 function computeInstagramComparison() {
-  const cache = getIgCache();
   const rawNotFollowingBack = [];
   const fans = [];
   const mutuals = [];
@@ -949,8 +995,7 @@ function computeInstagramComparison() {
 
   for (const [u, d] of igFollowingMap) {
     if (!igFollowersMap.has(u)) {
-      // Check if known placeholder or marked inactive in cache
-      if (isPlaceholderUser(u) || cache[u]?.status === 'inactive') {
+      if (isPlaceholderUser(u) || igAccountsCache[u]?.status === 'inactive') {
         inactive.push(d);
       } else {
         rawNotFollowingBack.push(d);
@@ -981,14 +1026,12 @@ function computeInstagramComparison() {
   igFilteredLists['all-following'] = allFollowing;
   igFilteredLists['all-followers'] = allFollowers;
 
-  // Stat counters
   $('stat-following').textContent = allFollowing.length.toLocaleString();
   $('stat-followers').textContent = allFollowers.length.toLocaleString();
   $('stat-not-following-back').textContent = rawNotFollowingBack.length.toLocaleString();
   $('stat-fans').textContent = fans.length.toLocaleString();
   $('stat-mutuals').textContent = mutuals.length.toLocaleString();
 
-  // Tab count badges
   $('tab-cnt-nfb').textContent = rawNotFollowingBack.length;
   $('tab-cnt-fans').textContent = fans.length;
   $('tab-cnt-mutuals').textContent = mutuals.length;
@@ -1004,7 +1047,6 @@ function renderInstagramList() {
   const container = $('ig-list-container');
   container.innerHTML = '';
   const query = ($('ig-search').value || '').trim().toLowerCase();
-  const cache = getIgCache();
 
   let list = igFilteredLists[igCurrentTab] || [];
   if (query) {
@@ -1036,8 +1078,7 @@ function renderInstagramList() {
     nameSpan.className = 'ig-user-name';
     nameSpan.textContent = '@' + item.username;
 
-    // Status pill
-    const userStatus = cache[item.username]?.status;
+    const userStatus = igAccountsCache[item.username]?.status;
     const pill = document.createElement('span');
     pill.className = 'ig-status-pill ' + (userStatus === 'active' ? 'pill-active' : (userStatus === 'inactive' ? 'pill-inactive' : 'pill-unverified'));
     pill.textContent = userStatus === 'active' ? 'Active' : (userStatus === 'inactive' ? 'Inactive' : 'Unchecked');
@@ -1120,7 +1161,6 @@ function renderInstagramList() {
   }
 }
 
-// Trickle Checker Logic
 async function toggleTrickleCheck() {
   const btn = $('ig-trickle-toggle-btn');
   const dot = $('ig-pulse-dot');
@@ -1138,9 +1178,8 @@ async function toggleTrickleCheck() {
     return;
   }
 
-  const cache = getIgCache();
   const queue = (igFilteredLists['not-following-back'] || []).filter(u => {
-    return !cache[u.username] || (cache[u.username].status !== 'active' && cache[u.username].status !== 'inactive');
+    return !igAccountsCache[u.username] || (igAccountsCache[u.username].status !== 'active' && igAccountsCache[u.username].status !== 'inactive');
   });
 
   if (!queue.length) {
@@ -1179,7 +1218,6 @@ async function toggleTrickleCheck() {
       console.warn('Error checking @' + user.username, e);
     }
 
-    // Safe gentle pause between checks (2.6 seconds)
     await new Promise(r => setTimeout(r, 2600));
   }
 
@@ -1273,11 +1311,10 @@ if (igDropzone && igFileInput) {
   // Export CSV button
   $('ig-csv-btn').onclick = () => {
     const list = igFilteredLists[igCurrentTab] || [];
-    const cache = getIgCache();
     let csv = 'username,url,status,followed_date\n';
     for (const item of list) {
       const date = item.timestamp ? new Date(item.timestamp * 1000).toISOString() : '';
-      const st = cache[item.username]?.status || 'unverified';
+      const st = igAccountsCache[item.username]?.status || 'unverified';
       csv += item.username + ',' + item.url + ',' + st + ',' + date + '\n';
     }
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -1289,11 +1326,18 @@ if (igDropzone && igFileInput) {
     URL.revokeObjectURL(u);
   };
 
+  // Reload from repo button
+  $('ig-reload-repo-btn').onclick = () => {
+    loadInstagramDataFromDisk();
+  };
+
   // Reset button
-  $('ig-reset-btn').onclick = () => {
+  $('ig-reset-btn').onclick = async () => {
     if (trickleRunning) toggleTrickleCheck();
+    if (!confirm('Clear Instagram data from repository file (instagram_cache.json)?')) return;
     igFollowersMap = null;
     igFollowingMap = null;
+    igAccountsCache = {};
     $('slot-followers-name').textContent = 'Waiting for followers_1.json…';
     $('slot-followers-badge').textContent = 'Missing';
     $('slot-followers-badge').classList.remove('ready');
@@ -1302,5 +1346,17 @@ if (igDropzone && igFileInput) {
     $('slot-following-badge').classList.remove('ready');
     $('ig-results').hidden = true;
     $('ig-search').value = '';
+    await persistInstagramData({ accounts: {}, followers: [], following: [], lastUpdated: null });
+    showSaveStatus('Repository data cleared');
   };
 }
+
+// Automatically load repository data once backend connects
+const origCheckBackend = checkBackend;
+checkBackend = async function() {
+  const ready = await origCheckBackend();
+  if (ready) {
+    loadInstagramDataFromDisk();
+  }
+  return ready;
+};

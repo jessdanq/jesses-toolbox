@@ -36,7 +36,8 @@ A modern, fast, and personal digital toolbox with everyday practice and media to
 ### 4. Instagram Follow-Back Checker (`#ig-checker`)
 - Find out who doesn't follow you back, see fans/admirers, and view mutual follows.
 - **100% On-Device & Safe**: Uses your official Instagram data download (`followers_1.json` & `following.json`).
-- **Zero Credentials & Zero Ban Risk**: No passwords, cookies, or account connections required; runs completely offline in your browser.
+- **Repository-Backed Persistence (`instagram_cache.json`)**: Automatically saves parsed lists, verified statuses, and dismissed accounts into the repository file so your list syncs across all your computers when you push/pull with Git.
+- **Slow Trickle Profile Verifier**: Gently checks unverified accounts at a safe pace to detect and hide deactivated or deleted profiles.
 - **Interactive Tools**: Live search filtering, one-click username list copying, and CSV export.
 
 
