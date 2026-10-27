@@ -193,11 +193,14 @@ def load_ig_cache():
                 data.setdefault('accounts', {})
                 data.setdefault('followers', [])
                 data.setdefault('following', [])
+                data.setdefault('ignored', [])
+                data.setdefault('previousNotFollowingBack', [])
+                data.setdefault('reviewedNew', [])
                 data.setdefault('lastUpdated', None)
                 return data
         except (OSError, ValueError):
             pass
-    return {'accounts': {}, 'followers': [], 'following': [], 'lastUpdated': None}
+    return {'accounts': {}, 'followers': [], 'following': [], 'ignored': [], 'previousNotFollowingBack': [], 'reviewedNew': [], 'lastUpdated': None}
 
 def save_ig_cache(data):
     temporary = ROOT / 'instagram_cache.tmp'
@@ -358,12 +361,61 @@ class Handler(SimpleHTTPRequestHandler):
                     current['followers'] = payload['followers']
                 if 'following' in payload and isinstance(payload['following'], list):
                     current['following'] = payload['following']
+                if 'ignored' in payload and isinstance(payload['ignored'], list):
+                    current['ignored'] = payload['ignored']
+                if 'previousNotFollowingBack' in payload and isinstance(payload['previousNotFollowingBack'], list):
+                    current['previousNotFollowingBack'] = payload['previousNotFollowingBack']
+                if 'reviewedNew' in payload and isinstance(payload['reviewedNew'], list):
+                    current['reviewedNew'] = payload['reviewedNew']
                 if 'lastUpdated' in payload:
                     current['lastUpdated'] = payload['lastUpdated']
                 save_ig_cache(current)
                 return self.json_response(200, {'ok': True, 'saved': True})
             except Exception as e:
                 return self.json_response(400, {'error': f'Could not save Instagram data: {str(e)}'})
+        if path == '/api/audio/encode-mp3':
+            try:
+                length = int(self.headers.get('Content-Length', '0'))
+                if not 0 < length <= 200 * 1024 * 1024:
+                    raise ValueError('Audio payload exceeds size limit (200 MB).')
+                query = parse_qs(urlparse(self.path).query)
+                bitrate = int(query.get('bitrate', ['192'])[0])
+                if bitrate not in (128, 192, 320):
+                    bitrate = 192
+                filename = query.get('filename', ['looped-audio.mp3'])[0]
+                filename = re.sub(r'[<>:"/\\|?*\x00-\x1f]', '_', filename)[:120].strip('. ') or 'looped-audio.mp3'
+                if not filename.lower().endswith('.mp3'):
+                    filename += '.mp3'
+                
+                ffmpeg = ffmpeg_path()
+                if not ffmpeg:
+                    raise RuntimeError('FFmpeg is not available.')
+
+                wav_bytes = self.rfile.read(length)
+                proc = subprocess.Popen([
+                    ffmpeg, '-nostdin', '-hide_banner', '-loglevel', 'error',
+                    '-y', '-f', 'wav', '-i', 'pipe:0',
+                    '-codec:a', 'libmp3lame', '-b:a', f'{bitrate}k',
+                    '-f', 'mp3', 'pipe:1'
+                ], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+
+                out_mp3, err = proc.communicate(input=wav_bytes, timeout=180)
+                if proc.returncode != 0 or not out_mp3:
+                    raise RuntimeError('FFmpeg conversion failed: ' + err.decode('utf-8', errors='ignore')[:300])
+
+                from urllib.parse import quote
+                self.send_response(200)
+                self.send_header('Content-Type', 'audio/mpeg')
+                self.send_header('Content-Disposition', f'attachment; filename="audio.mp3"; filename*=UTF-8\'\'{quote(filename)}')
+                self.send_header('Content-Length', str(len(out_mp3)))
+                self.send_header('Cache-Control', 'no-store')
+                self.end_headers()
+                self.wfile.write(out_mp3)
+                return
+            except Exception as e:
+                return self.json_response(400, {'error': f'Could not encode MP3: {str(e)}'})
+
         if path != '/api/jobs':
             return self.send_error(404)
         try:
