@@ -234,9 +234,15 @@ async function api(path, options = {}) {
       ...options.headers
     }
   });
-  const data = await response.json();
-  if (!response.ok) throw Error(data.error || 'The conversion service returned an error.');
-  return data;
+  const contentType = response.headers.get('content-type') || '';
+  if (!response.ok) {
+    if (contentType.includes('application/json')) {
+      const data = await response.json().catch(() => ({}));
+      throw Error(data.error || 'Server error ' + response.status);
+    }
+    throw Error('Backend service unavailable (HTTP ' + response.status + '). Launch via Start toolbox.cmd for live profile checks.');
+  }
+  return await response.json();
 }
 
 async function checkBackend() {
@@ -846,14 +852,29 @@ async function persistInstagramData(updates) {
     showSaveStatus('Saved to instagram_cache.json ✓');
   } catch (err) {
     console.error('Failed to save Instagram cache:', err);
-    showSaveStatus('Error saving to repository');
+    if (!backendToken) {
+      showSaveStatus('Loaded from repo (offline mode — run Start toolbox.cmd to save new checks)');
+    } else {
+      showSaveStatus('Error saving to repository');
+    }
   }
 }
 
 async function loadInstagramDataFromDisk() {
   try {
     showSaveStatus('Loading from repository…');
-    const data = await api('/api/ig/data');
+    let data = null;
+    try {
+      data = await api('/api/ig/data');
+    } catch {
+      // Fallback for static hosts (GitHub Pages)
+      try {
+        const resp = await fetch('instagram_cache.json', { cache: 'no-cache' });
+        if (resp.ok) data = await resp.json();
+      } catch (staticErr) {
+        console.warn('Could not load static instagram_cache.json:', staticErr);
+      }
+    }
     if (data && typeof data === 'object') {
       igAccountsCache = data.accounts || {};
       igIgnoredSet = new Set(Array.isArray(data.ignored) ? data.ignored : []);
@@ -1193,6 +1214,10 @@ function renderInstagramList() {
       verifyBtn.textContent = 'Verify';
       verifyBtn.title = 'Check if this account still exists on Instagram';
       verifyBtn.onclick = async () => {
+        if (!backendToken) {
+          alert('Instagram profile verification requires the local Python server running on your computer.\n\nPlease open Jesse\'s Toolbox using "Start toolbox.cmd" (or your desktop shortcut).');
+          return;
+        }
         verifyBtn.disabled = true;
         verifyBtn.textContent = 'Checking…';
         pill.className = 'ig-status-pill pill-checking';
@@ -1245,6 +1270,12 @@ async function toggleTrickleCheck() {
   const statusText = $('ig-trickle-status-text');
   const progressWrap = $('ig-progress-wrap');
   const progressFill = $('ig-progress-fill');
+
+  if (!backendToken) {
+    alert('The Slow Trickle Profile Checker connects directly to Instagram via the local server on your PC to bypass CORS restrictions.\n\nPlease launch Jesse\'s Toolbox on your computer using "Start toolbox.cmd" (or your desktop shortcut).');
+    if (statusText) statusText.textContent = '⚠️ Trickle check requires local PC server. Run "Start toolbox.cmd" to check profiles.';
+    return;
+  }
 
   if (trickleRunning) {
     trickleAbort = true;
