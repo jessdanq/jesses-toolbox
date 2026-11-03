@@ -464,6 +464,18 @@ kbd { background: #ebeee6; border: 1px solid #d3d9cb; border-radius: 4px; paddin
 .meta-download-card { border-top: 1px solid var(--line); padding-top: 16px; margin-top: 8px; display: flex; flex-direction: column; gap: 10px; }
 .meta-download-info { font-size: 11px; color: #5a6b57; font-weight: 600; min-height: 16px; }
 
+/* YouTube A-B Downloader */
+.ab-downloader-box { margin-top: 22px; border-top: 1px solid var(--line); padding-top: 20px; }
+.ab-download-config { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+.ab-cfg-field label { font-size: 9px; letter-spacing: 1px; font-weight: 700; color: #6b7768; margin-bottom: 6px; }
+.ab-cfg-field select { width: 100%; padding: 10px; font-size: 12px; background: #fbfbf8; border: 1px solid #d3d9cb; border-radius: 8px; color: var(--ink); }
+.ab-downloader-box button { width: 100%; }
+.ab-progress-bar-wrap { width: 100%; height: 6px; background: #e8eae1; border-radius: 4px; overflow: hidden; margin-top: 12px; }
+.ab-progress-bar-fill { height: 100%; background: #245342; width: 0%; transition: width .3s; }
+.ab-status-text { font-size: 11px; color: var(--muted); margin: 8px 0 0; text-align: center; }
+.ab-download-link { margin-top: 10px; background: #245342; color: #e5efcf; text-align: center; text-decoration: none; border-radius: 8px; font-weight: 700; }
+.ab-download-link:hover { background: #193c30; }
+
 @media(max-width: 960px) {
   .cards { grid-template-columns: 1fr; }
 }

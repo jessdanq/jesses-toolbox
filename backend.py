@@ -96,44 +96,118 @@ def encode_mp3(source, target, bitrate):
     if process.returncode or not target.exists() or target.stat().st_size == 0:
         raise RuntimeError('FFmpeg could not convert the downloaded audio.')
 
-def worker(folder, url, bitrate):
+def encode_mp4(source, target):
+    process = subprocess.run([ffmpeg_path(), '-nostdin', '-hide_banner', '-loglevel', 'error',
+        '-y', '-i', str(source), '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '22',
+        '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart', str(target)],
+        capture_output=True, timeout=900,
+        creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+    if process.returncode or not target.exists() or target.stat().st_size == 0:
+        raise RuntimeError('FFmpeg could not process the downloaded video.')
+
+def format_time_slug(seconds_val):
+    seconds_val = max(0, int(round(seconds_val)))
+    m, s = divmod(seconds_val, 60)
+    h, m = divmod(m, 60)
+    if h > 0:
+        return f"{h}h{m:02d}m{s:02d}s"
+    return f"{m}m{s:02d}s"
+
+def worker(folder, url, bitrate=192, fmt='mp3', start=None, end=None):
     import yt_dlp
     last = 0
+    is_clip = (start is not None and end is not None)
+    if is_clip:
+        start = max(0.0, float(start))
+        end = float(end)
+        if end <= start or (end - start) < 0.5:
+            raise ValueError('End time (Point B) must be at least 0.5s after Start time (Point A).')
+    max_bytes = (500 if fmt == 'mp4' else 200) * 1024 * 1024
+
     def progress(info):
         nonlocal last
-        if info.get('downloaded_bytes', 0) > 200 * 1024 * 1024:
-            raise ValueError('Audio exceeds the 200 MB download limit.')
+        if info.get('downloaded_bytes', 0) > max_bytes:
+            raise ValueError(f"Media exceeds the {500 if fmt == 'mp4' else 200} MB download limit.")
         if time.monotonic() - last < .5:
             return
         last = time.monotonic()
         total = info.get('total_bytes') or info.get('total_bytes_estimate')
         percent = min(99, round(info.get('downloaded_bytes', 0) * 100 / total)) if total else None
-        write_status(folder, state='downloading', message='Downloading audio…', percent=percent)
+        msg = 'Downloading clip segment…' if is_clip else ('Downloading video…' if fmt == 'mp4' else 'Downloading audio…')
+        write_status(folder, state='downloading', message=msg, percent=percent)
+
     def allowed(info, *, incomplete=False):
         if info.get('is_live'):
             return 'Live streams are not supported.'
-        if (info.get('duration') or 0) > 7200:
+        if is_clip:
+            if (end - start) > 7200:
+                return 'Selected clip duration cannot exceed two hours.'
+        elif (info.get('duration') or 0) > 7200:
             return 'Choose a video shorter than two hours.'
+
     runtimes = {'node': {'path': shutil.which('node')}} if shutil.which('node') else {'deno': {}}
-    options = {'format': 'bestaudio/best', 'outtmpl': str(folder / 'source.%(ext)s'),
-        'noplaylist': True, 'quiet': True, 'no_warnings': True, 'cachedir': False,
-        'socket_timeout': 20, 'retries': 2, 'fragment_retries': 2,
-        'max_filesize': 200 * 1024 * 1024, 'match_filter': allowed,
-        'progress_hooks': [progress], 'js_runtimes': runtimes}
+    format_opt = 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best' if fmt == 'mp4' else 'bestaudio/best'
+
+    options = {
+        'format': format_opt,
+        'outtmpl': str(folder / 'source.%(ext)s'),
+        'noplaylist': True,
+        'quiet': True,
+        'no_warnings': True,
+        'cachedir': False,
+        'socket_timeout': 20,
+        'retries': 2,
+        'fragment_retries': 2,
+        'max_filesize': max_bytes,
+        'match_filter': allowed,
+        'progress_hooks': [progress],
+        'js_runtimes': runtimes,
+        'ffmpeg_location': ffmpeg_path(),
+    }
+    if is_clip:
+        options['download_ranges'] = yt_dlp.utils.download_range_func(None, [(start, end)])
+        options['force_keyframes_at_cuts'] = True
+
     write_status(folder, state='downloading', message='Getting video details…', percent=None)
     with yt_dlp.YoutubeDL(options) as downloader:
         info = downloader.extract_info(url, download=True)
         if not info:
             raise ValueError('This video could not be downloaded.')
         source = Path(downloader.prepare_filename(info))
+
     if not source.exists():
-        raise ValueError('No audio was downloaded. The video may exceed the size limit.')
-    write_status(folder, state='converting', message='Converting to MP3…', percent=None)
-    encode_mp3(source, folder / 'audio.mp3', bitrate)
+        candidates = [p for p in folder.glob('source.*') if not p.name.endswith('.part') and not p.name.endswith('.ytdl')]
+        if candidates:
+            source = candidates[0]
+        else:
+            raise ValueError('No media was downloaded. The video may exceed size limits or be restricted.')
+
+    if fmt == 'mp4':
+        write_status(folder, state='converting', message='Processing MP4 clip…' if is_clip else 'Processing MP4 video…', percent=None)
+        target = folder / 'clip.mp4'
+        encode_mp4(source, target)
+        target_file = 'clip.mp4'
+        ext = 'mp4'
+    else:
+        write_status(folder, state='converting', message='Encoding MP3 clip…' if is_clip else 'Converting to MP3…', percent=None)
+        target = folder / 'audio.mp3'
+        encode_mp3(source, target, bitrate)
+        target_file = 'audio.mp3'
+        ext = 'mp3'
+
     source.unlink(missing_ok=True)
-    title = re.sub(r'[<>:"/\\|?*\x00-\x1f]', '_', info.get('title') or 'youtube-audio')[:120].strip('. ')
-    write_status(folder, state='complete', message='Your MP3 is ready.', percent=100,
-                 filename=(title or 'youtube-audio') + '.mp3')
+    raw_title = re.sub(r'[<>:"/\\|?*\x00-\x1f]', '_', info.get('title') or 'youtube-clip')[:100].strip('. ')
+    if is_clip:
+        time_slug = f"[{format_time_slug(start)} - {format_time_slug(end)}]"
+        filename = f"{raw_title} {time_slug}.{ext}"
+    else:
+        filename = f"{raw_title}.{ext}"
+
+    write_status(folder, state='complete',
+                 message='Your A–B clip is ready.' if is_clip else 'Your download is ready.',
+                 percent=100,
+                 filename=filename,
+                 target_file=target_file)
 
 class ToolboxServer(ThreadingHTTPServer):
     daemon_threads = True
@@ -161,7 +235,7 @@ class ToolboxServer(ThreadingHTTPServer):
                     if job.get('cancelled'):
                         return
                     job['process'] = subprocess.Popen([sys.executable, str(ROOT / 'backend.py'),
-                        '--worker', str(folder), job['url'], str(job['bitrate'])],
+                        '--worker', str(folder)],
                         stdout=log, stderr=log, env=env,
                         creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
                 try:
@@ -319,13 +393,17 @@ class Handler(SimpleHTTPRequestHandler):
                 if not self.authenticated():
                     return self.json_response(403, {'error': 'Refresh the toolbox and try again.'})
                 return self.json_response(200, data)
-            target = job['folder'] / 'audio.mp3'
+            target_name = data.get('target_file') or ('clip.mp4' if data.get('filename', '').endswith('.mp4') else 'audio.mp3')
+            target = job['folder'] / target_name
             if data['state'] != 'complete' or not target.exists():
-                return self.json_response(409, {'error': 'The MP3 is not ready.'})
+                return self.json_response(409, {'error': 'The download is not ready.'})
             from urllib.parse import quote
             self.send_response(200)
-            self.send_header('Content-Type', 'audio/mpeg')
-            self.send_header('Content-Disposition', "attachment; filename=\"youtube-audio.mp3\"; filename*=UTF-8''" + quote(data['filename']))
+            content_type = 'video/mp4' if target_name.endswith('.mp4') else 'audio/mpeg'
+            self.send_header('Content-Type', content_type)
+            safe_filename = data.get('filename', 'download')
+            safe_ascii = re.sub(r'[^\x20-\x7e]', '_', safe_filename)
+            self.send_header('Content-Disposition', f'attachment; filename="{safe_ascii}"; filename*=UTF-8\'\'{quote(safe_filename)}')
             self.send_header('Content-Length', str(target.stat().st_size))
             self.send_header('Cache-Control', 'no-store')
             self.end_headers()
@@ -420,15 +498,29 @@ class Handler(SimpleHTTPRequestHandler):
             return self.send_error(404)
         try:
             length = int(self.headers.get('Content-Length', '0'))
-            if not 0 < length <= 8192:
+            if not 0 < length <= 16384:
                 raise ValueError('Invalid request size.')
             body = json.loads(self.rfile.read(length))
             url = canonical_url(body.get('url'))
+            fmt = str(body.get('format', 'mp3')).lower()
+            if fmt not in ('mp3', 'mp4'):
+                raise ValueError('Format must be mp3 or mp4.')
             bitrate = int(body.get('bitrate', 192))
             if bitrate not in (128, 192, 320):
-                raise ValueError('Choose 128, 192, or 320 kbps.')
-        except (ValueError, TypeError, AttributeError):
-            return self.json_response(400, {'error': 'Enter a valid YouTube or YouTube Music link and choose an available MP3 quality.'})
+                bitrate = 192
+            start = body.get('start')
+            end = body.get('end')
+            if start is not None or end is not None:
+                if start is None or end is None:
+                    raise ValueError('Both start (Point A) and end (Point B) are required for clip downloads.')
+                start = max(0.0, float(start))
+                end = float(end)
+                if end <= start or (end - start) < 0.5:
+                    raise ValueError('End time (Point B) must be at least 0.5s after Start time (Point A).')
+                if (end - start) > 7200:
+                    raise ValueError('Clip duration cannot exceed two hours.')
+        except (ValueError, TypeError, AttributeError) as e:
+            return self.json_response(400, {'error': str(e) or 'Enter a valid YouTube link and parameters.'})
         missing = dependency_status()
         if missing:
             return self.json_response(503, {'error': 'Run Setup backend.cmd. Missing: ' + ', '.join(missing)})
@@ -442,16 +534,36 @@ class Handler(SimpleHTTPRequestHandler):
             job_id = secrets.token_hex(16)
             folder = Path(self.server.scratch.name) / job_id
             folder.mkdir()
-            job = {'folder': folder, 'url': url, 'bitrate': bitrate, 'active': True}
-            write_status(folder, state='queued', message='Starting conversion…', percent=None)
+            job_config = {
+                'url': url,
+                'format': fmt,
+                'bitrate': bitrate,
+                'start': start,
+                'end': end
+            }
+            (folder / 'job.json').write_text(json.dumps(job_config), encoding='utf-8')
+            job = {'folder': folder, 'url': url, 'bitrate': bitrate, 'format': fmt, 'active': True}
+            write_status(folder, state='queued', message='Starting download…', percent=None)
             self.server.jobs[job_id] = job
         threading.Thread(target=self.server.convert, args=(job,), daemon=True).start()
         self.json_response(202, {'id': job_id})
 
-if __name__ == '__main__' and len(sys.argv) == 5 and sys.argv[1] == '--worker':
+if __name__ == '__main__' and len(sys.argv) >= 3 and sys.argv[1] == '--worker':
     folder = Path(sys.argv[2])
     try:
-        worker(folder, canonical_url(sys.argv[3]), int(sys.argv[4]))
+        if len(sys.argv) == 5:
+            worker(folder, canonical_url(sys.argv[3]), int(sys.argv[4]))
+        else:
+            job_file = folder / 'job.json'
+            if not job_file.exists():
+                raise ValueError('Job configuration not found.')
+            cfg = json.loads(job_file.read_text(encoding='utf-8'))
+            worker(folder,
+                   url=canonical_url(cfg['url']),
+                   bitrate=int(cfg.get('bitrate', 192)),
+                   fmt=str(cfg.get('format', 'mp3')),
+                   start=cfg.get('start'),
+                   end=cfg.get('end'))
     except Exception as error:
         text = re.sub(r'\x1b\[[0-9;]*m', '', str(error))
         write_status(folder, state='error', message=text[:800])

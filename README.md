@@ -12,10 +12,12 @@ A modern, fast, and personal digital toolbox with everyday practice and media to
 - Selectable bitrates: **128 kbps**, **192 kbps**, and **320 kbps**.
 - Clean status indicators, progress tracking, and direct MP3 download.
 
-### 2. YouTube A–B Repeater (`#repeater`)
+### 2. YouTube A–B Repeater & Downloader (`#repeater`)
 - Practice with any YouTube clip.
-- Precise start (A) and end (B) loop points.
+- Precise start (Point A) and end (Point B) loop points.
 - Adjustable playback rate (0.25× – 2×) and loop repetition counter.
+- **Built-in A–B Downloader**: Extract and save the exact A–B segment directly to your computer.
+- **Selectable Formats**: Download as **Audio (MP3)** (128, 192, 320 kbps) or **Video (MP4)** with H.264/AAC encoding.
 
 ### 3. Local Video A–B Repeater (`#local-repeater`)
 - Play and repeat sections of any local video file from your drive (`.mp4`, `.webm`, `.mov`, `.mkv`, `.m4v`).

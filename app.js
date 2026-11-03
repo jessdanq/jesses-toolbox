@@ -79,7 +79,12 @@ function resetLoop() {
 }
 let playerTimeout, loadGeneration = 0;
 function playerControls(enabled) {
-  for (const id of ['set-a', 'set-b', 'toggle-loop', 'speed']) $(id).disabled = !enabled;
+  for (const id of ['set-a', 'set-b', 'toggle-loop', 'speed', 'yt-ab-format', 'yt-ab-download-btn']) {
+    const el = $(id);
+    if (el) el.disabled = !enabled;
+  }
+  const q = $('yt-ab-quality');
+  if (q) q.disabled = !enabled || $('yt-ab-format')?.value !== 'mp3';
 }
 function playerFailure(text) {
   clearTimeout(playerTimeout);
@@ -223,6 +228,111 @@ setInterval(() => {
   }
 }, 80);
 
+
+/* --- YouTube A-B Downloader Logic --- */
+let abDownloading = false;
+
+$('yt-ab-format').onchange = () => {
+  const isMp3 = $('yt-ab-format').value === 'mp3';
+  const qField = $('yt-ab-quality-field');
+  if (qField) qField.hidden = !isMp3;
+  const q = $('yt-ab-quality');
+  if (q) q.disabled = !isMp3 || !ready;
+};
+
+$('yt-ab-download-btn').onclick = async () => {
+  if (abDownloading) return;
+  const rawUrl = $('video-url').value;
+  const id = videoId(rawUrl);
+  if (!id) {
+    $('yt-ab-status-wrap').hidden = false;
+    $('yt-ab-status-text').textContent = 'Please load a valid YouTube video first.';
+    return;
+  }
+  const a = seconds($('point-a').value);
+  const b = seconds($('point-b').value);
+  const duration = (player && typeof player.getDuration === 'function') ? player.getDuration() : Infinity;
+  if (!Number.isFinite(a) || !Number.isFinite(b) || a < 0 || b <= a) {
+    $('yt-ab-status-wrap').hidden = false;
+    $('yt-ab-status-text').textContent = 'Enter valid times: Point B must be after Point A.';
+    return;
+  }
+  if (b - a < 0.5) {
+    $('yt-ab-status-wrap').hidden = false;
+    $('yt-ab-status-text').textContent = 'Selected clip must be at least 0.5s long.';
+    return;
+  }
+  if (Number.isFinite(duration) && duration > 0 && b > duration + 1) {
+    $('yt-ab-status-wrap').hidden = false;
+    $('yt-ab-status-text').textContent = 'Point B exceeds video duration (' + format(duration) + ').';
+    return;
+  }
+
+  const backendOk = await checkBackend();
+  if (!backendOk) {
+    $('yt-ab-status-wrap').hidden = false;
+    $('yt-ab-status-text').textContent = 'Toolbox backend is not connected. Start with Start toolbox.cmd.';
+    return;
+  }
+
+  abDownloading = true;
+  $('yt-ab-download-btn').disabled = true;
+  $('yt-ab-download-btn').textContent = 'Preparing clip…';
+  $('yt-ab-status-wrap').hidden = false;
+  $('yt-ab-download-link').hidden = true;
+  $('yt-ab-progress-bar').style.width = '10%';
+  $('yt-ab-status-text').textContent = 'Starting clip extraction…';
+
+  try {
+    const fmt = $('yt-ab-format').value;
+    const bitrate = Number($('yt-ab-quality').value) || 192;
+    const job = await api('/api/jobs', {
+      method: 'POST',
+      body: JSON.stringify({
+        url: 'https://www.youtube.com/watch?v=' + id,
+        format: fmt,
+        bitrate: bitrate,
+        start: a,
+        end: b
+      })
+    });
+
+    const deadline = Date.now() + 15 * 60 * 1000;
+    while (true) {
+      if (Date.now() > deadline) throw Error('Clip download timed out. Try a shorter segment.');
+      const status = await api('/api/jobs/' + job.id);
+      $('yt-ab-status-text').textContent = status.message;
+      if (Number.isFinite(status.percent)) {
+        $('yt-ab-progress-bar').style.width = status.percent + '%';
+      } else {
+        $('yt-ab-progress-bar').style.width = status.state === 'converting' ? '85%' : '45%';
+      }
+      if (status.state === 'complete') {
+        $('yt-ab-progress-bar').style.width = '100%';
+        const link = $('yt-ab-download-link');
+        link.href = '/api/jobs/' + job.id + '/download';
+        link.download = status.filename;
+        link.hidden = false;
+        link.textContent = '↓ Save ' + status.filename;
+        $('yt-ab-status-text').textContent = 'Your clip is ready!';
+        link.click();
+        break;
+      }
+      if (status.state === 'error') {
+        throw Error(status.message);
+      }
+      await new Promise(r => setTimeout(r, 1000));
+    }
+  } catch (err) {
+    $('yt-ab-status-text').textContent = err.message || 'Could not download clip.';
+    $('yt-ab-progress-bar').style.width = '0%';
+  } finally {
+    abDownloading = false;
+    $('yt-ab-download-btn').disabled = !ready;
+    $('yt-ab-download-btn').textContent = 'Download A–B Clip ↓';
+  }
+};
+
 /* --- YouTube to MP3 Backend Logic --- */
 let backendToken, converting = false;
 async function api(path, options = {}) {
@@ -329,7 +439,7 @@ $('convert-form').onsubmit = async e => {
   }
 };
 window.addEventListener('beforeunload', e => {
-  if (converting) { e.preventDefault(); e.returnValue = ''; }
+  if (converting || abDownloading) { e.preventDefault(); e.returnValue = ''; }
 });
 
 /* =========================================================
