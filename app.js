@@ -268,10 +268,13 @@ $('yt-ab-download-btn').onclick = async () => {
     return;
   }
 
+  const isGitHubPages = location.hostname.endsWith('github.io');
   const backendOk = await checkBackend();
   if (!backendOk) {
     $('yt-ab-status-wrap').hidden = false;
-    $('yt-ab-status-text').textContent = 'Toolbox backend is not connected. Start with Start toolbox.cmd.';
+    $('yt-ab-status-text').textContent = isGitHubPages
+      ? "Clip downloading requires the local desktop runner (FFmpeg & yt-dlp). Launch Jesse's Toolbox on your PC using 'Start toolbox.cmd'."
+      : 'Toolbox backend is not connected. Start with Start toolbox.cmd.';
     return;
   }
 
