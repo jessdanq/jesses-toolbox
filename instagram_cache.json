@@ -519,9 +519,41 @@
     "nonexistent_user_9928198219192991": {
       "status": "inactive",
       "timestamp": 1793654523992
+    },
+    "abzelmes": {
+      "status": "active",
+      "timestamp": 1793656357966
+    },
+    "philly_steeny": {
+      "status": "active",
+      "timestamp": 1793656361404
+    },
+    "software_engineering101": {
+      "status": "active",
+      "timestamp": 1793656365134
     }
   },
   "followers": [
+    {
+      "username": "sondra_bella",
+      "url": "https://www.instagram.com/sondra_bella",
+      "timestamp": 1793401715
+    },
+    {
+      "username": "alice_krokosz",
+      "url": "https://www.instagram.com/alice_krokosz",
+      "timestamp": 1792878137
+    },
+    {
+      "username": "alice_axj",
+      "url": "https://www.instagram.com/alice_axj",
+      "timestamp": 1792740530
+    },
+    {
+      "username": "dioneishere",
+      "url": "https://www.instagram.com/dioneishere",
+      "timestamp": 1792708779
+    },
     {
       "username": "jayclz4",
       "url": "https://www.instagram.com/jayclz4",
@@ -2501,11 +2533,6 @@
       "username": "tiiashuntae",
       "url": "https://www.instagram.com/tiiashuntae",
       "timestamp": 1633958606
-    },
-    {
-      "username": "abzelmes",
-      "url": "https://www.instagram.com/abzelmes",
-      "timestamp": 1633939369
     },
     {
       "username": "kaby_kany",
@@ -5088,11 +5115,6 @@
       "timestamp": 1552952968
     },
     {
-      "username": "shambhu_pradhn",
-      "url": "https://www.instagram.com/shambhu_pradhn",
-      "timestamp": 1552952968
-    },
-    {
       "username": "justin__loverr",
       "url": "https://www.instagram.com/justin__loverr",
       "timestamp": 1552952963
@@ -7528,8 +7550,8 @@
       "timestamp": 1552951088
     },
     {
-      "username": "franklin_montaa",
-      "url": "https://www.instagram.com/franklin_montaa",
+      "username": "francomontanaok",
+      "url": "https://www.instagram.com/francomontanaok",
       "timestamp": 1552951046
     },
     {
@@ -11498,6 +11520,11 @@
       "timestamp": 1552947852
     },
     {
+      "username": "healer_1520",
+      "url": "https://www.instagram.com/healer_1520",
+      "timestamp": 1552947850
+    },
+    {
       "username": "tamangranjib",
       "url": "https://www.instagram.com/tamangranjib",
       "timestamp": 1552947849
@@ -11868,8 +11895,8 @@
       "timestamp": 1552947538
     },
     {
-      "username": "sujal.jaker",
-      "url": "https://www.instagram.com/sujal.jaker",
+      "username": "rohankumar0754rcdc",
+      "url": "https://www.instagram.com/rohankumar0754rcdc",
       "timestamp": 1552947536
     },
     {
@@ -14698,11 +14725,6 @@
       "timestamp": 1552945208
     },
     {
-      "username": "krym_mtar",
-      "url": "https://www.instagram.com/krym_mtar",
-      "timestamp": 1552945177
-    },
-    {
       "username": "jay_kushi",
       "url": "https://www.instagram.com/jay_kushi",
       "timestamp": 1552945164
@@ -15640,28 +15662,50 @@
   ],
   "following": [
     {
+      "username": "sondra_bella",
+      "url": "https://www.instagram.com/_u/sondra_bella",
+      "timestamp": 1793406655,
+      "isNew": true
+    },
+    {
+      "username": "philly_steeny",
+      "url": "https://www.instagram.com/_u/philly_steeny",
+      "timestamp": 1793048830,
+      "isNew": true
+    },
+    {
+      "username": "alice_krokosz",
+      "url": "https://www.instagram.com/_u/alice_krokosz",
+      "timestamp": 1792878139,
+      "isNew": true
+    },
+    {
+      "username": "software_engineering101",
+      "url": "https://www.instagram.com/_u/software_engineering101",
+      "timestamp": 1792741299,
+      "isNew": true
+    },
+    {
       "username": "meetmargin.official",
       "url": "https://www.instagram.com/_u/meetmargin.official",
-      "timestamp": 1792038127,
-      "isNew": false
+      "timestamp": 1792741297
     },
     {
       "username": "so.thats.how",
       "url": "https://www.instagram.com/_u/so.thats.how",
-      "timestamp": 1791998960,
-      "isNew": false
+      "timestamp": 1792741295
     },
     {
-      "username": "quargeon_clothing",
-      "url": "https://www.instagram.com/_u/quargeon_clothing",
-      "timestamp": 1791739580,
-      "isNew": false
+      "username": "dioneishere",
+      "url": "https://www.instagram.com/_u/dioneishere",
+      "timestamp": 1792707110,
+      "isNew": true
     },
     {
-      "username": "scroll.engineer",
-      "url": "https://www.instagram.com/_u/scroll.engineer",
-      "timestamp": 1791709139,
-      "isNew": false
+      "username": "alice_axj",
+      "url": "https://www.instagram.com/_u/alice_axj",
+      "timestamp": 1792702494,
+      "isNew": true
     },
     {
       "username": "nanafrehsika",
@@ -15676,14 +15720,12 @@
     {
       "username": "setlistldn",
       "url": "https://www.instagram.com/_u/setlistldn",
-      "timestamp": 1790457118,
-      "isNew": false
+      "timestamp": 1790457118
     },
     {
       "username": "setlistafterdark",
       "url": "https://www.instagram.com/_u/setlistafterdark",
-      "timestamp": 1790457114,
-      "isNew": false
+      "timestamp": 1790457114
     },
     {
       "username": "mikedukee",
@@ -15693,8 +15735,7 @@
     {
       "username": "techflowpics",
       "url": "https://www.instagram.com/_u/techflowpics",
-      "timestamp": 1789342049,
-      "isNew": false
+      "timestamp": 1789342049
     },
     {
       "username": "oheema_l",
@@ -15709,8 +15750,7 @@
     {
       "username": "royaltybynanasei",
       "url": "https://www.instagram.com/_u/royaltybynanasei",
-      "timestamp": 1788468101,
-      "isNew": false
+      "timestamp": 1788468101
     },
     {
       "username": "nnnori__",
@@ -15735,8 +15775,7 @@
     {
       "username": "kwetheone",
       "url": "https://www.instagram.com/_u/kwetheone",
-      "timestamp": 1785797786,
-      "isNew": false
+      "timestamp": 1785797786
     },
     {
       "username": "sofydenton",
@@ -15746,14 +15785,12 @@
     {
       "username": "code.micky",
       "url": "https://www.instagram.com/_u/code.micky",
-      "timestamp": 1784838842,
-      "isNew": false
+      "timestamp": 1784838842
     },
     {
       "username": "thebluehorizon_ai",
       "url": "https://www.instagram.com/_u/thebluehorizon_ai",
-      "timestamp": 1784023431,
-      "isNew": false
+      "timestamp": 1784023431
     },
     {
       "username": "morgan_99x",
@@ -15763,8 +15800,7 @@
     {
       "username": "yapayzekaserisi",
       "url": "https://www.instagram.com/_u/yapayzekaserisi",
-      "timestamp": 1782796306,
-      "isNew": false
+      "timestamp": 1782796306
     },
     {
       "username": "teriocran",
@@ -15779,8 +15815,7 @@
     {
       "username": "diffsnap1",
       "url": "https://www.instagram.com/_u/diffsnap1",
-      "timestamp": 1780433509,
-      "isNew": false
+      "timestamp": 1780433509
     },
     {
       "username": "abena_mx",
@@ -15805,14 +15840,12 @@
     {
       "username": "vibes_energy1",
       "url": "https://www.instagram.com/_u/vibes_energy1",
-      "timestamp": 1777247729,
-      "isNew": false
+      "timestamp": 1777247729
     },
     {
       "username": "paglierifabiano",
       "url": "https://www.instagram.com/_u/paglierifabiano",
-      "timestamp": 1777064182,
-      "isNew": false
+      "timestamp": 1777064182
     },
     {
       "username": "iam.agyeiwaa",
@@ -15838,12 +15871,6 @@
       "username": "imod25",
       "url": "https://www.instagram.com/_u/imod25",
       "timestamp": 1775342927
-    },
-    {
-      "username": "lartehatvarena",
-      "url": "https://www.instagram.com/_u/lartehatvarena",
-      "timestamp": 1775170997,
-      "isNew": false
     },
     {
       "username": "easmontrickz",
@@ -15873,8 +15900,7 @@
     {
       "username": "laserglowdentalclinic",
       "url": "https://www.instagram.com/_u/laserglowdentalclinic",
-      "timestamp": 1773484254,
-      "isNew": false
+      "timestamp": 1773484254
     },
     {
       "username": "immanuel_appiah",
@@ -15894,8 +15920,7 @@
     {
       "username": "devan7e",
       "url": "https://www.instagram.com/_u/devan7e",
-      "timestamp": 1769916710,
-      "isNew": false
+      "timestamp": 1769916710
     },
     {
       "username": "d.w.t.g",
@@ -15905,8 +15930,7 @@
     {
       "username": "funnyhoodvidz",
       "url": "https://www.instagram.com/_u/funnyhoodvidz",
-      "timestamp": 1768398164,
-      "isNew": false
+      "timestamp": 1768398164
     },
     {
       "username": "paulcreux",
@@ -15916,8 +15940,7 @@
     {
       "username": "mag.pranks",
       "url": "https://www.instagram.com/_u/mag.pranks",
-      "timestamp": 1768137765,
-      "isNew": false
+      "timestamp": 1768137765
     },
     {
       "username": "champagneemadre",
@@ -15952,8 +15975,7 @@
     {
       "username": "eadnstpauls",
       "url": "https://www.instagram.com/_u/eadnstpauls",
-      "timestamp": 1764972451,
-      "isNew": false
+      "timestamp": 1764972451
     },
     {
       "username": "frank_abo1",
@@ -15963,8 +15985,7 @@
     {
       "username": "god_ofai",
       "url": "https://www.instagram.com/_u/god_ofai",
-      "timestamp": 1764878373,
-      "isNew": false
+      "timestamp": 1764878373
     },
     {
       "username": "queen_gloria_bidemi",
@@ -15974,8 +15995,7 @@
     {
       "username": "epiclan",
       "url": "https://www.instagram.com/_u/epiclan",
-      "timestamp": 1764601480,
-      "isNew": false
+      "timestamp": 1764601480
     },
     {
       "username": "yolandastephanie",
@@ -16000,8 +16020,7 @@
     {
       "username": "ctkministry",
       "url": "https://www.instagram.com/_u/ctkministry",
-      "timestamp": 1763586982,
-      "isNew": false
+      "timestamp": 1763586982
     },
     {
       "username": "agbrooksxo",
@@ -16081,8 +16100,7 @@
     {
       "username": "davi87dp",
       "url": "https://www.instagram.com/_u/davi87dp",
-      "timestamp": 1756384055,
-      "isNew": false
+      "timestamp": 1756384055
     },
     {
       "username": "louise_and_gracie",
@@ -16133,14 +16151,12 @@
     {
       "username": "slaysearch",
       "url": "https://www.instagram.com/_u/slaysearch",
-      "timestamp": 1753271938,
-      "isNew": false
+      "timestamp": 1753271938
     },
     {
       "username": "forhonorgame",
       "url": "https://www.instagram.com/_u/forhonorgame",
-      "timestamp": 1753107817,
-      "isNew": false
+      "timestamp": 1753107817
     },
     {
       "username": "yasminsenior",
@@ -16155,8 +16171,7 @@
     {
       "username": "kydyuzhini",
       "url": "https://www.instagram.com/_u/kydyuzhini",
-      "timestamp": 1752578871,
-      "isNew": false
+      "timestamp": 1752578871
     },
     {
       "username": "sierra_sells_sunshine",
@@ -16171,8 +16186,7 @@
     {
       "username": "prompteer.ai",
       "url": "https://www.instagram.com/_u/prompteer.ai",
-      "timestamp": 1750311596,
-      "isNew": false
+      "timestamp": 1750311596
     },
     {
       "username": "gabriielabrown",
@@ -16182,8 +16196,7 @@
     {
       "username": "bibleinblackvlogs",
       "url": "https://www.instagram.com/_u/bibleinblackvlogs",
-      "timestamp": 1749721282,
-      "isNew": false
+      "timestamp": 1749721282
     },
     {
       "username": "jaywonlo",
@@ -16193,8 +16206,7 @@
     {
       "username": "faithappofficial",
       "url": "https://www.instagram.com/_u/faithappofficial",
-      "timestamp": 1749162175,
-      "isNew": false
+      "timestamp": 1749162175
     },
     {
       "username": "micheal_humbled",
@@ -16204,20 +16216,17 @@
     {
       "username": "setupsai",
       "url": "https://www.instagram.com/_u/setupsai",
-      "timestamp": 1748942700,
-      "isNew": false
+      "timestamp": 1748942700
     },
     {
       "username": "holyvlogsz",
       "url": "https://www.instagram.com/_u/holyvlogsz",
-      "timestamp": 1748935441,
-      "isNew": false
+      "timestamp": 1748935441
     },
     {
       "username": "zackdfilms",
       "url": "https://www.instagram.com/_u/zackdfilms",
-      "timestamp": 1748031770,
-      "isNew": false
+      "timestamp": 1748031770
     },
     {
       "username": "pharmacy.phil",
@@ -16267,8 +16276,7 @@
     {
       "username": "filmcraves",
       "url": "https://www.instagram.com/_u/filmcraves",
-      "timestamp": 1744845705,
-      "isNew": false
+      "timestamp": 1744845705
     },
     {
       "username": "nickderuiter_",
@@ -16293,8 +16301,7 @@
     {
       "username": "stringssco",
       "url": "https://www.instagram.com/_u/stringssco",
-      "timestamp": 1742469948,
-      "isNew": false
+      "timestamp": 1742469948
     },
     {
       "username": "macsteelghana",
@@ -16309,14 +16316,12 @@
     {
       "username": "hoodville",
       "url": "https://www.instagram.com/_u/hoodville",
-      "timestamp": 1741870603,
-      "isNew": false
+      "timestamp": 1741870603
     },
     {
       "username": "4k_archives",
       "url": "https://www.instagram.com/_u/4k_archives",
-      "timestamp": 1741860253,
-      "isNew": false
+      "timestamp": 1741860253
     },
     {
       "username": "samuelgyasi_",
@@ -16341,8 +16346,7 @@
     {
       "username": "junkboxai",
       "url": "https://www.instagram.com/_u/junkboxai",
-      "timestamp": 1740878044,
-      "isNew": false
+      "timestamp": 1740878044
     },
     {
       "username": "lauraaregbe",
@@ -16372,8 +16376,7 @@
     {
       "username": "exploringlondon",
       "url": "https://www.instagram.com/_u/exploringlondon",
-      "timestamp": 1738520216,
-      "isNew": false
+      "timestamp": 1738520216
     },
     {
       "username": "malcolm_215",
@@ -16463,8 +16466,7 @@
     {
       "username": "thedesirabletruth",
       "url": "https://www.instagram.com/_u/thedesirabletruth",
-      "timestamp": 1734982068,
-      "isNew": false
+      "timestamp": 1734982068
     },
     {
       "username": "afrikanabeachhouse",
@@ -16494,8 +16496,7 @@
     {
       "username": "eman.rtm",
       "url": "https://www.instagram.com/_u/eman.rtm",
-      "timestamp": 1734407010,
-      "isNew": false
+      "timestamp": 1734407010
     },
     {
       "username": "ladyadelaidee",
@@ -16540,26 +16541,22 @@
     {
       "username": "accra_events",
       "url": "https://www.instagram.com/_u/accra_events",
-      "timestamp": 1733302490,
-      "isNew": false
+      "timestamp": 1733302490
     },
     {
       "username": "cocktailsandtakeaways",
       "url": "https://www.instagram.com/_u/cocktailsandtakeaways",
-      "timestamp": 1733294720,
-      "isNew": false
+      "timestamp": 1733294720
     },
     {
       "username": "isw_tv",
       "url": "https://www.instagram.com/_u/isw_tv",
-      "timestamp": 1733107775,
-      "isNew": false
+      "timestamp": 1733107775
     },
     {
       "username": "memeculture4",
       "url": "https://www.instagram.com/_u/memeculture4",
-      "timestamp": 1731383856,
-      "isNew": false
+      "timestamp": 1731383856
     },
     {
       "username": "fafatamakloe",
@@ -16574,8 +16571,7 @@
     {
       "username": "gg.sheed",
       "url": "https://www.instagram.com/_u/gg.sheed",
-      "timestamp": 1728642749,
-      "isNew": false
+      "timestamp": 1728642749
     },
     {
       "username": "kodana2",
@@ -16605,8 +16601,7 @@
     {
       "username": "africandancedictionary",
       "url": "https://www.instagram.com/_u/africandancedictionary",
-      "timestamp": 1724666023,
-      "isNew": false
+      "timestamp": 1724666023
     },
     {
       "username": "c.o.u.r.t.l.y.n.n",
@@ -16616,8 +16611,7 @@
     {
       "username": "stk_insurance",
       "url": "https://www.instagram.com/_u/stk_insurance",
-      "timestamp": 1723377193,
-      "isNew": false
+      "timestamp": 1723377193
     },
     {
       "username": "lydia_lyds1",
@@ -16627,14 +16621,12 @@
     {
       "username": "tsbunseen",
       "url": "https://www.instagram.com/_u/tsbunseen",
-      "timestamp": 1721965671,
-      "isNew": false
+      "timestamp": 1721965671
     },
     {
       "username": "imjustnews",
       "url": "https://www.instagram.com/_u/imjustnews",
-      "timestamp": 1721030642,
-      "isNew": false
+      "timestamp": 1721030642
     },
     {
       "username": "_lizminnah",
@@ -16644,8 +16636,7 @@
     {
       "username": "blnkcanvas_",
       "url": "https://www.instagram.com/_u/blnkcanvas_",
-      "timestamp": 1719917682,
-      "isNew": false
+      "timestamp": 1719917682
     },
     {
       "username": "dai_por_ai",
@@ -16800,8 +16791,7 @@
     {
       "username": "imhimfrrrrrr",
       "url": "https://www.instagram.com/_u/imhimfrrrrrr",
-      "timestamp": 1709571288,
-      "isNew": false
+      "timestamp": 1709571288
     },
     {
       "username": "deechristine_7",
@@ -16826,8 +16816,7 @@
     {
       "username": "universo.mid",
       "url": "https://www.instagram.com/_u/universo.mid",
-      "timestamp": 1708367633,
-      "isNew": false
+      "timestamp": 1708367633
     },
     {
       "username": "_precious_k_",
@@ -16847,14 +16836,12 @@
     {
       "username": "brknsergio",
       "url": "https://www.instagram.com/_u/brknsergio",
-      "timestamp": 1705244709,
-      "isNew": false
+      "timestamp": 1705244709
     },
     {
       "username": "rec.ess",
       "url": "https://www.instagram.com/_u/rec.ess",
-      "timestamp": 1704169368,
-      "isNew": false
+      "timestamp": 1704169368
     },
     {
       "username": "coco_.cx",
@@ -16874,14 +16861,12 @@
     {
       "username": "dave_ardito",
       "url": "https://www.instagram.com/_u/dave_ardito",
-      "timestamp": 1703107188,
-      "isNew": false
+      "timestamp": 1703107188
     },
     {
       "username": "thekickbackhq",
       "url": "https://www.instagram.com/_u/thekickbackhq",
-      "timestamp": 1701305681,
-      "isNew": false
+      "timestamp": 1701305681
     },
     {
       "username": "sahmmiee",
@@ -16891,14 +16876,12 @@
     {
       "username": "madein90sevents",
       "url": "https://www.instagram.com/_u/madein90sevents",
-      "timestamp": 1700723399,
-      "isNew": false
+      "timestamp": 1700723399
     },
     {
       "username": "onolondon",
       "url": "https://www.instagram.com/_u/onolondon",
-      "timestamp": 1700679585,
-      "isNew": false
+      "timestamp": 1700679585
     },
     {
       "username": "hibbx",
@@ -16908,8 +16891,7 @@
     {
       "username": "nnsecretparty",
       "url": "https://www.instagram.com/_u/nnsecretparty",
-      "timestamp": 1700098619,
-      "isNew": false
+      "timestamp": 1700098619
     },
     {
       "username": "__deleted__bhiebefeggfbgfiea",
@@ -16949,8 +16931,7 @@
     {
       "username": "catchagem",
       "url": "https://www.instagram.com/_u/catchagem",
-      "timestamp": 1692338238,
-      "isNew": false
+      "timestamp": 1692338238
     },
     {
       "username": "msmya.a",
@@ -16976,8 +16957,7 @@
     {
       "username": "victordemartrin",
       "url": "https://www.instagram.com/_u/victordemartrin",
-      "timestamp": 1689434529,
-      "isNew": false
+      "timestamp": 1689434529
     },
     {
       "username": "gabz_og",
@@ -17062,8 +17042,7 @@
     {
       "username": "liljehu_",
       "url": "https://www.instagram.com/_u/liljehu_",
-      "timestamp": 1686277630,
-      "isNew": false
+      "timestamp": 1686277630
     },
     {
       "username": "sunkissedama",
@@ -17128,8 +17107,7 @@
     {
       "username": "theshadeborough",
       "url": "https://www.instagram.com/_u/theshadeborough",
-      "timestamp": 1681492502,
-      "isNew": false
+      "timestamp": 1681492502
     },
     {
       "username": "geraldinetandoh",
@@ -17194,8 +17172,7 @@
     {
       "username": "diegosilvadigital",
       "url": "https://www.instagram.com/_u/diegosilvadigital",
-      "timestamp": 1676020341,
-      "isNew": false
+      "timestamp": 1676020341
     },
     {
       "username": "don__pk8",
@@ -17280,8 +17257,7 @@
     {
       "username": "ralphbk_",
       "url": "https://www.instagram.com/_u/ralphbk_",
-      "timestamp": 1672274382,
-      "isNew": false
+      "timestamp": 1672274382
     },
     {
       "username": "maame.oduro",
@@ -17307,12 +17283,6 @@
       "username": "vika_kwabe",
       "url": "https://www.instagram.com/_u/vika_kwabe",
       "timestamp": 1671927415
-    },
-    {
-      "username": "mefia1",
-      "url": "https://www.instagram.com/_u/mefia1",
-      "timestamp": 1671840245,
-      "isNew": false
     },
     {
       "username": "rachelfoxxinc",
@@ -17347,8 +17317,7 @@
     {
       "username": "nightlifeinghana",
       "url": "https://www.instagram.com/_u/nightlifeinghana",
-      "timestamp": 1670556042,
-      "isNew": false
+      "timestamp": 1670556042
     },
     {
       "username": "bbsoliii",
@@ -17358,8 +17327,7 @@
     {
       "username": "castillo_1st",
       "url": "https://www.instagram.com/_u/castillo_1st",
-      "timestamp": 1668871616,
-      "isNew": false
+      "timestamp": 1668871616
     },
     {
       "username": "riannasky",
@@ -17369,8 +17337,7 @@
     {
       "username": "askyourdigitalagency",
       "url": "https://www.instagram.com/_u/askyourdigitalagency",
-      "timestamp": 1667890642,
-      "isNew": false
+      "timestamp": 1667890642
     },
     {
       "username": "nateeen",
@@ -17390,14 +17357,12 @@
     {
       "username": "ghanatwitter",
       "url": "https://www.instagram.com/_u/ghanatwitter",
-      "timestamp": 1664159111,
-      "isNew": false
+      "timestamp": 1664159111
     },
     {
       "username": "headieone",
       "url": "https://www.instagram.com/_u/headieone",
-      "timestamp": 1661908246,
-      "isNew": false
+      "timestamp": 1661908246
     },
     {
       "username": "timtoni_",
@@ -17427,8 +17392,7 @@
     {
       "username": "afronation.africa",
       "url": "https://www.instagram.com/_u/afronation.africa",
-      "timestamp": 1659172349,
-      "isNew": false
+      "timestamp": 1659172349
     },
     {
       "username": "davido_00",
@@ -17458,14 +17422,12 @@
     {
       "username": "biggie_barbers",
       "url": "https://www.instagram.com/_u/biggie_barbers",
-      "timestamp": 1654525697,
-      "isNew": false
+      "timestamp": 1654525697
     },
     {
       "username": "dltbrunch",
       "url": "https://www.instagram.com/_u/dltbrunch",
-      "timestamp": 1654443170,
-      "isNew": false
+      "timestamp": 1654443170
     },
     {
       "username": "vxnnahdior",
@@ -17601,12 +17563,6 @@
       "username": "quajo_paps",
       "url": "https://www.instagram.com/_u/quajo_paps",
       "timestamp": 1644608491
-    },
-    {
-      "username": "metalextrusses",
-      "url": "https://www.instagram.com/_u/metalextrusses",
-      "timestamp": 1644399020,
-      "isNew": false
     },
     {
       "username": "yaminab.schenk",
@@ -17791,8 +17747,7 @@
     {
       "username": "accraevents.gh",
       "url": "https://www.instagram.com/_u/accraevents.gh",
-      "timestamp": 1639045752,
-      "isNew": false
+      "timestamp": 1639045752
     },
     {
       "username": "stormzyglautier",
@@ -17818,12 +17773,6 @@
       "username": "naaraa_",
       "url": "https://www.instagram.com/_u/naaraa_",
       "timestamp": 1637795841
-    },
-    {
-      "username": "metalex_brickntiles",
-      "url": "https://www.instagram.com/_u/metalex_brickntiles",
-      "timestamp": 1637697864,
-      "isNew": false
     },
     {
       "username": "mira_mcy",
@@ -17868,7 +17817,8 @@
     {
       "username": "abzelmes",
       "url": "https://www.instagram.com/_u/abzelmes",
-      "timestamp": 1633908929
+      "timestamp": 1633908929,
+      "isNew": true
     },
     {
       "username": "bentley.lounge.barbers",
@@ -17943,8 +17893,7 @@
     {
       "username": "skinnymann__",
       "url": "https://www.instagram.com/_u/skinnymann__",
-      "timestamp": 1623786340,
-      "isNew": false
+      "timestamp": 1623786340
     },
     {
       "username": "demirock92",
@@ -18029,8 +17978,7 @@
     {
       "username": "youngkingstv",
       "url": "https://www.instagram.com/_u/youngkingstv",
-      "timestamp": 1609846789,
-      "isNew": false
+      "timestamp": 1609846789
     },
     {
       "username": "yawdankwa_ii",
@@ -18050,8 +17998,7 @@
     {
       "username": "simplepolitics",
       "url": "https://www.instagram.com/_u/simplepolitics",
-      "timestamp": 1608370347,
-      "isNew": false
+      "timestamp": 1608370347
     },
     {
       "username": "sandys_a.d",
@@ -18106,19 +18053,12 @@
     {
       "username": "saylessuk",
       "url": "https://www.instagram.com/_u/saylessuk",
-      "timestamp": 1589187809,
-      "isNew": false
+      "timestamp": 1589187809
     },
     {
       "username": "demi.lea_miranda",
       "url": "https://www.instagram.com/_u/demi.lea_miranda",
       "timestamp": 1589024830
-    },
-    {
-      "username": "ewuresi_x",
-      "url": "https://www.instagram.com/_u/ewuresi_x",
-      "timestamp": 1584372830,
-      "isNew": false
     },
     {
       "username": "yaw_danq",
@@ -18148,8 +18088,7 @@
     {
       "username": "imjustbait",
       "url": "https://www.instagram.com/_u/imjustbait",
-      "timestamp": 1566135350,
-      "isNew": false
+      "timestamp": 1566135350
     },
     {
       "username": "xhanavas",
@@ -18194,8 +18133,7 @@
     {
       "username": "hoodclips",
       "url": "https://www.instagram.com/_u/hoodclips",
-      "timestamp": 1552490923,
-      "isNew": false
+      "timestamp": 1552490923
     },
     {
       "username": "louisnel19",
@@ -18290,8 +18228,7 @@
     {
       "username": "pubity",
       "url": "https://www.instagram.com/_u/pubity",
-      "timestamp": 1528816653,
-      "isNew": false
+      "timestamp": 1528816653
     },
     {
       "username": "samuel.beano",
@@ -18357,12 +18294,6 @@
       "username": "tahminaaa_",
       "url": "https://www.instagram.com/_u/tahminaaa_",
       "timestamp": 1501356812
-    },
-    {
-      "username": "mhu.europe",
-      "url": "https://www.instagram.com/_u/mhu.europe",
-      "timestamp": 1499504691,
-      "isNew": false
     },
     {
       "username": "beckychristiee",
@@ -18625,7 +18556,7 @@
       "timestamp": 1351972507
     }
   ],
-  "lastUpdated": "2026-10-26T15:25:02.780Z",
+  "lastUpdated": "2026-11-02T21:52:29.042Z",
   "ignored": [
     "4k_archives",
     "accra_events",
@@ -18708,13 +18639,15 @@
     "victordemartrin",
     "yapayzekaserisi",
     "youngkingstv",
-    "zackdfilms"
+    "zackdfilms",
+    "software_engineering101",
+    "philly_steeny"
   ],
   "previousNotFollowingBack": [
+    "philly_steeny",
+    "software_engineering101",
     "meetmargin.official",
     "so.thats.how",
-    "quargeon_clothing",
-    "scroll.engineer",
     "setlistldn",
     "setlistafterdark",
     "techflowpics",
@@ -18728,7 +18661,6 @@
     "vibes_energy1",
     "paglierifabiano",
     "amaloveskitchen",
-    "lartehatvarena",
     "laserglowdentalclinic",
     "devan7e",
     "funnyhoodvidz",
@@ -18801,7 +18733,6 @@
     "diegosilvadigital",
     "n.e.l.a.n",
     "ralphbk_",
-    "mefia1",
     "_vuyelwa_",
     "nightlifeinghana",
     "castillo_1st",
@@ -18811,14 +18742,13 @@
     "afronation.africa",
     "biggie_barbers",
     "dltbrunch",
-    "metalextrusses",
     "b1g_d94",
     "__deleted__bhiebeabbdgjbchji",
     "konde_kd",
     "mubarak.os",
     "accraevents.gh",
-    "metalex_brickntiles",
     "hustlersfile",
+    "abzelmes",
     "skinnymann__",
     "danny_similaki",
     "_ny1ma",
@@ -18826,7 +18756,6 @@
     "youngkingstv",
     "simplepolitics",
     "saylessuk",
-    "ewuresi_x",
     "imjustbait",
     "kojo_ire",
     "hoodclips",
@@ -18834,11 +18763,12 @@
     "modern_caveman94",
     "pubity",
     "michaelkojoboamah",
-    "mhu.europe",
     "manbow22",
     "nixb_v",
     "michaelkojoosei",
     "adjare"
   ],
-  "reviewedNew": []
+  "reviewedNew": [
+    "abzelmes"
+  ]
 }
