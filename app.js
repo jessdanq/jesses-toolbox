@@ -5188,6 +5188,441 @@ function initExpenseSplitter() {
 }
 
 
+/* =========================================================
+   --- Universal Any-Site Video Downloader Logic ---
+   ========================================================= */
+
+let currentDetectedVideos = [];
+let vidDownloading = false;
+
+function formatMediaDuration(sec) {
+  if (sec == null || isNaN(sec)) return 'Unknown duration';
+  sec = Math.max(0, Math.round(sec));
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = sec % 60;
+  if (h > 0) {
+    return `${h}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`;
+  }
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+function showVidError(title, msg) {
+  const errBox = $('vid-error-state');
+  if (errBox) {
+    $('vid-error-title').textContent = title;
+    $('vid-error-msg').textContent = msg;
+    errBox.hidden = false;
+  }
+  const probeState = $('vid-probe-state');
+  if (probeState) probeState.hidden = true;
+  const resultsContainer = $('vid-results-container');
+  if (resultsContainer) resultsContainer.hidden = true;
+}
+
+function renderDetectedVideos(videos, backendReady) {
+  currentDetectedVideos = videos || [];
+  const probeState = $('vid-probe-state');
+  if (probeState) probeState.hidden = true;
+  const errBox = $('vid-error-state');
+  if (errBox) errBox.hidden = true;
+
+  const countEl = $('vid-results-count');
+  if (countEl) countEl.textContent = String(currentDetectedVideos.length);
+
+  const container = $('vid-results-container');
+  const grid = $('vid-cards-grid');
+  if (!container || !grid) return;
+
+  grid.innerHTML = '';
+  if (currentDetectedVideos.length === 0) {
+    showVidError('No videos found', 'No video files could be extracted from this webpage.');
+    return;
+  }
+
+  container.hidden = false;
+
+  currentDetectedVideos.forEach((vid, idx) => {
+    const card = document.createElement('div');
+    card.className = 'detected-vid-card';
+
+    // Thumbnail / preview
+    const thumbDiv = document.createElement('div');
+    thumbDiv.className = 'detected-vid-thumb';
+    if (vid.thumbnail) {
+      const img = document.createElement('img');
+      img.src = vid.thumbnail;
+      img.alt = vid.title || 'Video preview';
+      img.loading = 'lazy';
+      thumbDiv.appendChild(img);
+    } else {
+      const placeholder = document.createElement('span');
+      placeholder.className = 'thumb-placeholder';
+      placeholder.textContent = '🎬';
+      thumbDiv.appendChild(placeholder);
+    }
+
+    const durBadge = document.createElement('span');
+    durBadge.className = 'vid-duration-badge';
+    durBadge.textContent = '⏱ ' + (vid.duration_str || formatMediaDuration(vid.duration));
+    thumbDiv.appendChild(durBadge);
+    card.appendChild(thumbDiv);
+
+    // Body
+    const bodyDiv = document.createElement('div');
+    bodyDiv.className = 'detected-vid-body';
+
+    const titleH3 = document.createElement('h3');
+    titleH3.className = 'detected-vid-title';
+    titleH3.textContent = vid.title || 'Untitled Video';
+    titleH3.title = vid.title || '';
+    bodyDiv.appendChild(titleH3);
+
+    const metaDiv = document.createElement('div');
+    metaDiv.className = 'detected-vid-meta';
+    
+    const durPill = document.createElement('span');
+    durPill.className = 'meta-pill';
+    durPill.textContent = 'Duration: ' + (vid.duration_str || formatMediaDuration(vid.duration));
+    metaDiv.appendChild(durPill);
+
+    if (vid.extractor) {
+      const srcPill = document.createElement('span');
+      srcPill.className = 'meta-pill';
+      srcPill.textContent = 'Source: ' + vid.extractor.toUpperCase();
+      metaDiv.appendChild(srcPill);
+    }
+    bodyDiv.appendChild(metaDiv);
+
+    // Formats & Download Action
+    const actionsDiv = document.createElement('div');
+    actionsDiv.className = 'detected-vid-actions';
+
+    const fmtWrap = document.createElement('div');
+    fmtWrap.className = 'format-select-wrap';
+    const fmtLabel = document.createElement('label');
+    fmtLabel.textContent = 'Choose Quality:';
+    fmtWrap.appendChild(fmtLabel);
+
+    const select = document.createElement('select');
+    select.className = 'vid-format-select';
+    select.id = `vid-fmt-select-${idx}`;
+
+    const formats = vid.formats && vid.formats.length > 0 ? vid.formats : [
+      { format_id: 'best', label: 'Best Quality (MP4)' },
+      { format_id: 'audio', label: 'Audio Only (MP3)' }
+    ];
+
+    formats.forEach(f => {
+      const opt = document.createElement('option');
+      opt.value = f.format_id;
+      opt.textContent = f.label || `${f.resolution || 'Standard'} (${f.ext ? f.ext.toUpperCase() : 'MP4'})`;
+      select.appendChild(opt);
+    });
+    fmtWrap.appendChild(select);
+    actionsDiv.appendChild(fmtWrap);
+
+    const dlBtn = document.createElement('button');
+    dlBtn.type = 'button';
+    dlBtn.className = 'vid-download-btn';
+    dlBtn.textContent = 'Download Video ↓';
+    dlBtn.onclick = () => handleVideoDownload(vid, select.value);
+
+    actionsDiv.appendChild(dlBtn);
+    bodyDiv.appendChild(actionsDiv);
+    card.appendChild(bodyDiv);
+
+    grid.appendChild(card);
+  });
+}
+
+async function handleVideoDownload(video, selectedFmtId) {
+  if (vidDownloading) return;
+
+  const isAudio = (selectedFmtId === 'audio');
+  const drawer = $('vid-download-drawer');
+  const titleEl = $('vid-dl-title');
+  const statusEl = $('vid-dl-status');
+  const barEl = $('vid-dl-progress-bar');
+  const directLink = $('vid-dl-direct-link');
+
+  if (video.is_direct) {
+    // In-browser direct file download
+    try {
+      const a = document.createElement('a');
+      a.href = video.url;
+      a.download = video.title || 'video.mp4';
+      a.target = '_blank';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      if (drawer) {
+        drawer.hidden = false;
+        titleEl.textContent = `Downloaded: ${video.title}`;
+        statusEl.textContent = 'Saved directly via browser!';
+        barEl.style.width = '100%';
+        directLink.hidden = false;
+        directLink.href = video.url;
+        directLink.textContent = '↓ Click here if download did not start';
+      }
+    } catch (e) {
+      alert('Could not start download: ' + e.message);
+    }
+    return;
+  }
+
+  // Backend download
+  const backendOk = await checkBackend();
+  if (!backendOk) {
+    if (location.hostname.endsWith('github.io')) {
+      alert("This video stream requires the local desktop runner (FFmpeg & yt-dlp) to mux and download. Launch Jesse's Toolbox using 'Start toolbox.cmd'.");
+    } else {
+      alert("Local backend is not running. Please start Jesse's Toolbox using 'Start toolbox.cmd'.");
+    }
+    return;
+  }
+
+  vidDownloading = true;
+  if (drawer) {
+    drawer.hidden = false;
+    titleEl.textContent = `Downloading: ${video.title}`;
+    statusEl.textContent = 'Requesting download job…';
+    barEl.style.width = '10%';
+    directLink.hidden = true;
+  }
+
+  try {
+    const job = await api('/api/jobs', {
+      method: 'POST',
+      body: JSON.stringify({
+        url: video.url,
+        format: isAudio ? 'mp3' : 'mp4',
+        format_id: selectedFmtId,
+        is_generic: true,
+        title: video.title
+      })
+    });
+
+    const checkJob = async () => {
+      try {
+        const data = await api(`/api/jobs/${job.id}`);
+        if (data.percent != null) {
+          barEl.style.width = `${data.percent}%`;
+        }
+        statusEl.textContent = data.message || 'Processing video…';
+
+        if (data.state === 'complete') {
+          vidDownloading = false;
+          barEl.style.width = '100%';
+          statusEl.textContent = 'Ready! Starting browser download…';
+          const dlUrl = `/api/jobs/${job.id}/download`;
+          directLink.hidden = false;
+          directLink.href = dlUrl;
+          directLink.textContent = `↓ Save ${data.filename || 'Video'}`;
+
+          // Automatically trigger download
+          const a = document.createElement('a');
+          a.href = dlUrl;
+          a.download = data.filename || 'video.mp4';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          return;
+        }
+
+        if (data.state === 'error') {
+          vidDownloading = false;
+          statusEl.textContent = 'Error: ' + (data.message || 'Download failed.');
+          return;
+        }
+
+        setTimeout(checkJob, 1000);
+      } catch (err) {
+        vidDownloading = false;
+        statusEl.textContent = 'Failed to check status: ' + err.message;
+      }
+    };
+
+    checkJob();
+  } catch (err) {
+    vidDownloading = false;
+    if (statusEl) statusEl.textContent = 'Error starting job: ' + err.message;
+  }
+}
+
+async function clientSideProbeFallback(url) {
+  // 1. Direct video URL check
+  const isDirectVideo = /\.(mp4|webm|mov|m4v|ogv)(\?.*)?$/i.test(url);
+  if (isDirectVideo) {
+    const filename = decodeURIComponent(url.split('/').pop().split('?')[0]) || 'video.mp4';
+    const testVid = document.createElement('video');
+    testVid.preload = 'metadata';
+    testVid.crossOrigin = 'anonymous';
+    testVid.src = url;
+
+    const dur = await new Promise(resolve => {
+      testVid.onloadedmetadata = () => resolve(testVid.duration);
+      testVid.onerror = () => resolve(null);
+      setTimeout(() => resolve(null), 5000);
+    });
+
+    renderDetectedVideos([{
+      id: 'vid_1',
+      title: filename,
+      duration: dur,
+      duration_str: formatMediaDuration(dur),
+      thumbnail: null,
+      url: url,
+      is_direct: true,
+      extractor: 'Direct Link',
+      formats: [{ format_id: 'direct', label: 'Direct Video File (MP4/WebM)', resolution: 'Original', ext: 'mp4' }]
+    }], false);
+    return;
+  }
+
+  // 2. Check if it's a known streaming platform that requires yt-dlp
+  const isStreamingPlatform = /(youtube\.com|youtu\.be|tiktok\.com|twitter\.com|x\.com|reddit\.com|instagram\.com|vimeo\.com|facebook\.com)/i.test(url);
+  if (isStreamingPlatform) {
+    const isGitHub = location.hostname.endsWith('github.io');
+    showVidError('Desktop Runner Required for this Platform',
+      isGitHub
+        ? "This streaming platform encrypts its video chunks. To download from YouTube, X, TikTok, Reddit, and Vimeo, run Jesse's Toolbox on your computer using 'Start toolbox.cmd'."
+        : "Start the local toolbox backend with 'Start toolbox.cmd' to download videos from streaming platforms."
+    );
+    return;
+  }
+
+  // 3. Generic webpage scrape via CORS proxy
+  try {
+    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+    const resp = await fetch(proxyUrl, { headers: { 'Accept': 'text/html' } });
+    if (!resp.ok) throw new Error('Could not fetch webpage content');
+    const html = await resp.text();
+
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+
+    const foundUrls = new Set();
+
+    // Scan <video src>
+    doc.querySelectorAll('video[src]').forEach(v => {
+      const src = v.getAttribute('src');
+      if (src) try { foundUrls.add(new URL(src, url).href); } catch {}
+    });
+
+    // Scan <source src>
+    doc.querySelectorAll('video source[src]').forEach(s => {
+      const src = s.getAttribute('src');
+      if (src) try { foundUrls.add(new URL(src, url).href); } catch {}
+    });
+
+    // Scan og:video
+    doc.querySelectorAll('meta[property="og:video"], meta[property="og:video:url"]').forEach(m => {
+      const content = m.getAttribute('content');
+      if (content) try { foundUrls.add(new URL(content, url).href); } catch {}
+    });
+
+    const candidateList = Array.from(foundUrls).filter(u => /\.(mp4|webm|mov|m4v|m3u8)(\?.*)?$/i.test(u));
+
+    if (candidateList.length === 0) {
+      showVidError('No video files detected', 'Scanned the webpage HTML but could not locate any HTML5 <video> elements or direct media streams.');
+      return;
+    }
+
+    const videos = [];
+    for (let i = 0; i < candidateList.length; i++) {
+      const vUrl = candidateList[i];
+      const filename = decodeURIComponent(vUrl.split('/').pop().split('?')[0]) || `Video_${i+1}.mp4`;
+      
+      const probeVid = document.createElement('video');
+      probeVid.preload = 'metadata';
+      probeVid.src = vUrl;
+      const dur = await new Promise(resolve => {
+        probeVid.onloadedmetadata = () => resolve(probeVid.duration);
+        probeVid.onerror = () => resolve(null);
+        setTimeout(() => resolve(null), 3000);
+      });
+
+      videos.push({
+        id: `vid_${i+1}`,
+        title: filename,
+        duration: dur,
+        duration_str: formatMediaDuration(dur),
+        thumbnail: null,
+        url: vUrl,
+        is_direct: true,
+        extractor: 'Webpage Video',
+        formats: [{ format_id: 'direct', label: 'Download Original File', resolution: 'Original', ext: 'mp4' }]
+      });
+    }
+
+    renderDetectedVideos(videos, false);
+  } catch (err) {
+    showVidError('Inspection Failed', 'Could not scan this webpage. Please ensure the link is publicly accessible: ' + err.message);
+  }
+}
+
+function initVideoDownloader() {
+  const form = $('vid-url-form');
+  const input = $('vid-page-url');
+  const clearBtn = $('btn-clear-vid-results');
+
+  if (clearBtn) {
+    clearBtn.onclick = () => {
+      $('vid-results-container').hidden = true;
+      $('vid-cards-grid').innerHTML = '';
+      if ($('vid-download-drawer')) $('vid-download-drawer').hidden = true;
+      if (input) input.value = '';
+    };
+  }
+
+  if (form) {
+    form.onsubmit = async e => {
+      e.preventDefault();
+      let rawUrl = (input.value || '').trim();
+      if (!rawUrl) return;
+      if (!/^https?:\/\//i.test(rawUrl)) {
+        rawUrl = 'https://' + rawUrl;
+      }
+
+      $('vid-probe-state').hidden = false;
+      $('vid-error-state').hidden = true;
+      $('vid-results-container').hidden = true;
+      if ($('vid-download-drawer')) $('vid-download-drawer').hidden = true;
+      $('btn-inspect-url').disabled = true;
+
+      try {
+        const backendReady = await checkBackend();
+        if (backendReady) {
+          try {
+            const res = await api('/api/probe', {
+              method: 'POST',
+              body: JSON.stringify({ url: rawUrl })
+            });
+            if (res && res.videos && res.videos.length > 0) {
+              renderDetectedVideos(res.videos, true);
+            } else {
+              await clientSideProbeFallback(rawUrl);
+            }
+          } catch (apiErr) {
+            await clientSideProbeFallback(rawUrl);
+          }
+        } else {
+          await clientSideProbeFallback(rawUrl);
+        }
+      } catch (err) {
+        showVidError('Inspection Error', err.message || 'An error occurred while inspecting the webpage.');
+      } finally {
+        $('btn-inspect-url').disabled = false;
+        $('vid-probe-state').hidden = true;
+      }
+    };
+  }
+}
+
+// Initialize video downloader
+initVideoDownloader();
+
 // Initialize expense splitter
 initExpenseSplitter();
 

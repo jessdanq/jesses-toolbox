@@ -667,3 +667,78 @@ kbd { background: #ebeee6; border: 1px solid #d3d9cb; border-radius: 4px; paddin
   .expense-stats-grid { grid-template-columns: 1fr; }
   .expense-form-row { flex-direction: column; }
 }
+
+
+/* =========================================================
+   --- Universal Any-Site Video Downloader Styles ---
+   ========================================================= */
+
+/* Home Card */
+.any-video-card { background: #f2f5f1; border-color: #d1ded0; }
+.any-video-art { display: flex; align-items: center; justify-content: center; height: 160px; }
+.any-vid-graphic { display: flex; flex-direction: column; align-items: center; position: relative; width: 100%; max-width: 220px; }
+.any-vid-browser { width: 100%; background: #ffffff; border: 1px solid #d4ddd2; border-radius: 8px; padding: 8px 12px; display: flex; flex-direction: column; gap: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.04); }
+.browser-dot-bar { display: flex; gap: 4px; }
+.browser-dot-bar i { width: 6px; height: 6px; border-radius: 50%; background: #c2cebf; }
+.browser-url-pill { background: #f4f6f1; border-radius: 4px; padding: 4px 8px; font-size: 10px; font-family: monospace; color: #5a6b57; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.any-vid-play-badge { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 44px; height: 44px; border-radius: 50%; background: #245342; color: #e5efcf; display: grid; place-items: center; font-size: 16px; box-shadow: 0 4px 14px rgba(36,83,66,0.25); z-index: 2; }
+
+/* Tool UI: Inspect Box */
+.vid-inspect-box { background: #fdfdf9; border: 1px solid var(--line); border-radius: 14px; padding: 24px; margin-bottom: 24px; display: flex; flex-direction: column; gap: 16px; }
+.vid-sites-pill-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 11px; color: var(--muted); }
+.pill-site { background: #eef2eb; color: #2e4d3a; border: 1px solid #d7e2d4; border-radius: 12px; padding: 2px 8px; font-weight: 600; font-size: 10px; }
+
+/* State & Spinner */
+.vid-state-panel { background: #f8faf6; border: 1px solid #dce4d9; border-radius: 12px; padding: 22px; margin-bottom: 24px; display: flex; align-items: center; gap: 18px; }
+.vid-spinner { width: 28px; height: 28px; border: 3px solid #d5e0d3; border-top-color: #245342; border-radius: 50%; animation: spin 0.8s linear infinite; flex-shrink: 0; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.vid-state-text { display: flex; flex-direction: column; gap: 2px; }
+.vid-state-text strong { font-size: 13px; color: var(--ink); }
+.vid-state-text span { font-size: 11px; color: var(--muted); }
+
+/* Error Banner */
+.vid-alert-error { background: #fdf2ed; border: 1px solid #f6ccba; border-radius: 12px; padding: 18px 20px; margin-bottom: 24px; display: flex; align-items: flex-start; gap: 14px; }
+.vid-alert-error .alert-icon { font-size: 20px; line-height: 1; }
+.vid-alert-error .alert-content strong { font-size: 13px; color: #a1361f; }
+.vid-alert-error .alert-content p { font-size: 12px; color: #782614; margin: 4px 0 0; }
+
+/* Results Section */
+.vid-results-shell { display: flex; flex-direction: column; gap: 16px; margin-bottom: 24px; }
+.vid-results-header { display: flex; justify-content: space-between; align-items: center; padding: 0 4px; }
+.vid-cards-grid { display: flex; flex-direction: column; gap: 16px; }
+
+/* Detected Video Card */
+.detected-vid-card { background: #fffef9; border: 1px solid var(--line); border-radius: 14px; padding: 20px; display: grid; grid-template-columns: 240px 1fr; gap: 22px; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.03); transition: border-color .15s; }
+.detected-vid-card:hover { border-color: #b9c7b5; }
+.detected-vid-thumb { position: relative; width: 100%; height: 140px; background: #182821; border-radius: 10px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+.detected-vid-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.detected-vid-thumb .thumb-placeholder { font-size: 38px; color: #7f9988; }
+.vid-duration-badge { position: absolute; bottom: 8px; right: 8px; background: rgba(0, 0, 0, 0.8); color: #fff; font-size: 11px; font-weight: 700; font-family: monospace; padding: 3px 7px; border-radius: 6px; letter-spacing: 0.5px; }
+
+.detected-vid-body { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.detected-vid-title { font-size: 16px; font-weight: 700; color: var(--ink); margin: 0; word-break: break-word; line-height: 1.35; }
+.detected-vid-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.detected-vid-meta .meta-pill { background: #f0f3eb; border: 1px solid #ccd6c7; border-radius: 6px; padding: 2px 8px; font-size: 11px; font-weight: 600; color: #40523e; }
+.detected-vid-actions { display: flex; align-items: flex-end; gap: 12px; margin-top: 6px; flex-wrap: wrap; }
+.format-select-wrap { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 180px; }
+.format-select-wrap label { font-size: 9px; font-weight: 800; letter-spacing: 0.6px; color: var(--muted); text-transform: uppercase; }
+.vid-format-select { width: 100%; padding: 10px 12px; font-size: 12px; background: #fbfbf8; border: 1px solid #ccd5c5; border-radius: 8px; color: var(--ink); font-weight: 600; }
+.vid-download-btn { background: #245342; color: #e5efcf; font-size: 12px; font-weight: 700; padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer; transition: background .15s, transform .1s; white-space: nowrap; }
+.vid-download-btn:hover:not(:disabled) { background: #1c4335; transform: translateY(-1px); }
+.vid-download-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* Download Drawer */
+.vid-download-drawer { background: #f7faf5; border: 1px solid #cbd8c8; border-radius: 12px; padding: 16px 20px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; gap: 18px; flex-wrap: wrap; }
+.vid-dl-info { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 240px; }
+.vid-dl-top { display: flex; justify-content: space-between; align-items: center; font-size: 12px; }
+.vid-dl-top strong { color: var(--ink); font-size: 12px; }
+.vid-dl-top span { color: var(--muted); font-size: 11px; font-weight: 600; }
+.vid-dl-finish-btn { background: #245342; color: #e5efcf; text-decoration: none; border-radius: 8px; font-weight: 700; font-size: 12px; padding: 10px 18px; }
+.vid-dl-finish-btn:hover { background: #1c4335; }
+
+@media(max-width: 768px) {
+  .detected-vid-card { grid-template-columns: 1fr; gap: 14px; }
+  .detected-vid-thumb { height: 180px; }
+  .detected-vid-actions { flex-direction: column; align-items: stretch; }
+  .vid-download-btn { width: 100%; text-align: center; }
+}

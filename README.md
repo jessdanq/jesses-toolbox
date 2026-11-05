@@ -35,13 +35,18 @@ A modern, fast, and personal digital toolbox with everyday practice and media to
   - <kbd>0</kbd>: Jump to Point A
   - <kbd>M</kbd>: Mute / Unmute
 
-### 4. Instagram Follow-Back Checker (`#ig-checker`)
+### 4. Any Site Video Downloader (`#video-downloader`)
+- **Inspect Any Webpage or Video Link**: Paste links from YouTube, X / Twitter, TikTok, Reddit, Vimeo, Facebook, Instagram, Dailymotion, or any generic webpage.
+- **Automatic Duration & Media Discovery**: Detects all video streams and files on the page, measuring exact duration (e.g. `03:45`, `1h 12m`).
+- **Quality & Format Selection**: Choose your preferred resolution (1080p, 720p, 480p, Best MP4, or Audio-Only MP3).
+- **Works in Browser**: Runs directly in the browser with local backend support via `Start toolbox.cmd` for high-speed conversion, and client-side probing when browsing on GitHub Pages.
+
+### 5. Instagram Follow-Back Checker (`#ig-checker`)
 - Find out who doesn't follow you back, see fans/admirers, and view mutual follows.
 - **100% On-Device & Safe**: Uses your official Instagram data download (`followers_1.json` & `following.json`).
 - **Repository-Backed Persistence (`instagram_cache.json`)**: Automatically saves parsed lists, verified statuses, and dismissed accounts into the repository file so your list syncs across all your computers when you push/pull with Git.
 - **Slow Trickle Profile Verifier**: Gently checks unverified accounts at a safe pace to detect and hide deactivated or deleted profiles.
 - **Interactive Tools**: Live search filtering, one-click username list copying, and CSV export.
-
 
 ---
 

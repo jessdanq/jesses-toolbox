@@ -43,6 +43,209 @@ def canonical_url(value):
         raise ValueError('Enter a valid YouTube or YouTube Music link, not a playlist.')
     return 'https://www.youtube.com/watch?v=' + video
 
+def clean_web_url(value):
+    if not isinstance(value, str) or len(value) > 4096:
+        raise ValueError('Enter a valid website or video link.')
+    value = value.strip()
+    if not value:
+        raise ValueError('Enter a valid website or video link.')
+    if not re.match(r'^https?://', value, re.IGNORECASE):
+        value = 'https://' + value
+    u = urlparse(value)
+    if u.scheme not in ('http', 'https') or not u.hostname or u.username or u.password:
+        raise ValueError('Enter a valid website or video link (http:// or https://).')
+    return value
+
+def format_duration(seconds):
+    if seconds is None:
+        return 'Unknown duration'
+    try:
+        s = int(round(float(seconds)))
+    except (TypeError, ValueError):
+        return 'Unknown duration'
+    m, s = divmod(s, 60)
+    h, m = divmod(m, 60)
+    if h > 0:
+        return f'{h}h {m:02d}m {s:02d}s'
+    return f'{m:02d}:{s:02d}'
+
+def format_bytes(b):
+    if not b:
+        return None
+    for unit in ['B', 'KB', 'MB', 'GB']:
+        if b < 1024.0:
+            return f'{b:.1f} {unit}'
+        b /= 1024.0
+    return f'{b:.1f} TB'
+
+def probe_ffprobe_duration(url):
+    ffmpeg = ffmpeg_path()
+    if not ffmpeg:
+        return None
+    ffprobe = Path(ffmpeg).parent / 'ffprobe.exe'
+    if not ffprobe.exists():
+        ffprobe = shutil.which('ffprobe')
+    if not ffprobe or not Path(ffprobe).exists():
+        return None
+    try:
+        res = subprocess.run([
+            str(ffprobe), '-v', 'error',
+            '-show_entries', 'format=duration',
+            '-of', 'default=noprint_wrappers=1:nokey=1',
+            url
+        ], capture_output=True, text=True, timeout=8)
+        val = res.stdout.strip()
+        if val:
+            return float(val)
+    except Exception:
+        pass
+    return None
+
+def probe_media_from_url(url):
+    url = clean_web_url(url)
+    import yt_dlp
+    videos = []
+    seen_urls = set()
+
+    ydl_opts = {
+        'quiet': True,
+        'no_warnings': True,
+        'skip_download': True,
+        'extract_flat': 'in_playlist',
+        'noplaylist': False,
+        'socket_timeout': 15,
+        'ffmpeg_location': ffmpeg_path(),
+    }
+
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+            if info:
+                entries = info.get('entries')
+                if entries:
+                    for entry in entries:
+                        if not entry:
+                            continue
+                        e_url = entry.get('url') or entry.get('webpage_url') or url
+                        if e_url in seen_urls:
+                            continue
+                        seen_urls.add(e_url)
+                        dur = entry.get('duration')
+                        videos.append({
+                            'id': f'vid_{len(videos)+1}',
+                            'title': entry.get('title') or 'Untitled Video',
+                            'duration': round(dur, 1) if dur else None,
+                            'duration_str': format_duration(dur),
+                            'thumbnail': entry.get('thumbnail'),
+                            'url': e_url,
+                            'extractor': info.get('extractor', 'web'),
+                            'formats': [
+                                {'format_id': 'best', 'label': 'Best Available Quality (MP4)', 'resolution': 'Best', 'ext': 'mp4'},
+                                {'format_id': 'audio', 'label': 'Audio Only (MP3)', 'resolution': 'Audio', 'ext': 'mp3'}
+                            ]
+                        })
+                else:
+                    title = info.get('title') or 'Video'
+                    dur = info.get('duration')
+                    thumb = info.get('thumbnail')
+                    v_url = info.get('webpage_url') or url
+                    seen_urls.add(v_url)
+
+                    formats_list = []
+                    formats = info.get('formats') or []
+                    res_seen = set()
+                    for f in reversed(formats):
+                        if f.get('vcodec') == 'none':
+                            continue
+                        res = f.get('resolution') or (f"{f.get('height')}p" if f.get('height') else None)
+                        if res and res not in res_seen:
+                            res_seen.add(res)
+                            fs = f.get('filesize') or f.get('filesize_approx')
+                            formats_list.append({
+                                'format_id': str(f.get('format_id')),
+                                'label': f"{res} (MP4)" + (f" - {format_bytes(fs)}" if fs else ""),
+                                'resolution': res,
+                                'ext': 'mp4',
+                                'filesize': fs,
+                                'filesize_str': format_bytes(fs)
+                            })
+                    if not formats_list:
+                        formats_list.append({
+                            'format_id': 'best',
+                            'label': 'Best Video (MP4)',
+                            'resolution': 'Best',
+                            'ext': 'mp4'
+                        })
+                    formats_list.append({
+                        'format_id': 'audio',
+                        'label': 'Audio Only (MP3)',
+                        'resolution': 'Audio',
+                        'ext': 'mp3'
+                    })
+
+                    videos.append({
+                        'id': f'vid_{len(videos)+1}',
+                        'title': title,
+                        'duration': round(dur, 1) if dur else None,
+                        'duration_str': format_duration(dur),
+                        'thumbnail': thumb,
+                        'url': v_url,
+                        'extractor': info.get('extractor', 'web'),
+                        'formats': formats_list
+                    })
+    except Exception:
+        pass
+
+    try:
+        import urllib.request
+        from urllib.parse import urljoin
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'})
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            html = resp.read().decode('utf-8', errors='ignore')
+            found_media = []
+            for p in [
+                r'''<source[^>]+src=["']([^"']+)["']''',
+                r'''<video[^>]+src=["']([^"']+)["']''',
+                r'''<meta[^>]+property=["']og:video(?::url)?["'][^>]+content=["']([^"']+)["']''',
+                r'''<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:video(?::url)?["']'''
+            ]:
+                for m in re.findall(p, html, re.I):
+                    full = urljoin(url, m)
+                    if any(full.lower().endswith(ext) or ext in full.lower() for ext in ['.mp4', '.webm', '.m3u8', '.mov', '.m4v']):
+                        if full not in seen_urls:
+                            seen_urls.add(full)
+                            found_media.append(full)
+
+            for media_url in found_media:
+                dur = probe_ffprobe_duration(media_url)
+                name = Path(urlparse(media_url).path).name or 'Video File'
+                videos.append({
+                    'id': f'vid_{len(videos)+1}',
+                    'title': name,
+                    'duration': round(dur, 1) if dur else None,
+                    'duration_str': format_duration(dur),
+                    'thumbnail': None,
+                    'url': media_url,
+                    'extractor': 'html5',
+                    'formats': [{
+                        'format_id': 'best',
+                        'label': 'Original Video (MP4)',
+                        'resolution': 'Original',
+                        'ext': 'mp4'
+                    }]
+                })
+    except Exception:
+        pass
+
+    for v in videos:
+        if v.get('duration') is None and v.get('url'):
+            dur = probe_ffprobe_duration(v['url'])
+            if dur:
+                v['duration'] = round(dur, 1)
+                v['duration_str'] = format_duration(dur)
+
+    return videos
+
 def ffmpeg_path():
     found = shutil.which('ffmpeg')
     if found:
@@ -113,7 +316,7 @@ def format_time_slug(seconds_val):
         return f"{h}h{m:02d}m{s:02d}s"
     return f"{m}m{s:02d}s"
 
-def worker(folder, url, bitrate=192, fmt='mp3', start=None, end=None):
+def worker(folder, url, bitrate=192, fmt='mp3', start=None, end=None, format_id=None, is_generic=False, custom_title=None):
     import yt_dlp
     last = 0
     is_clip = (start is not None and end is not None)
@@ -122,12 +325,12 @@ def worker(folder, url, bitrate=192, fmt='mp3', start=None, end=None):
         end = float(end)
         if end <= start or (end - start) < 0.5:
             raise ValueError('End time (Point B) must be at least 0.5s after Start time (Point A).')
-    max_bytes = (500 if fmt == 'mp4' else 200) * 1024 * 1024
+    max_bytes = 2000 * 1024 * 1024
 
     def progress(info):
         nonlocal last
         if info.get('downloaded_bytes', 0) > max_bytes:
-            raise ValueError(f"Media exceeds the {500 if fmt == 'mp4' else 200} MB download limit.")
+            raise ValueError('Media exceeds the 2 GB download limit.')
         if time.monotonic() - last < .5:
             return
         last = time.monotonic()
@@ -142,11 +345,20 @@ def worker(folder, url, bitrate=192, fmt='mp3', start=None, end=None):
         if is_clip:
             if (end - start) > 7200:
                 return 'Selected clip duration cannot exceed two hours.'
-        elif (info.get('duration') or 0) > 7200:
-            return 'Choose a video shorter than two hours.'
+        elif not is_generic and (info.get('duration') or 0) > 14400:
+            return 'Choose a video shorter than four hours.'
 
     runtimes = {'node': {'path': shutil.which('node')}} if shutil.which('node') else {'deno': {}}
-    format_opt = 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best' if fmt == 'mp4' else 'bestaudio/best'
+    if format_id == 'audio':
+        fmt = 'mp3'
+    
+    if fmt == 'mp4':
+        if format_id and format_id not in ('best', 'audio'):
+            format_opt = f"{format_id}+bestaudio/best"
+        else:
+            format_opt = 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best'
+    else:
+        format_opt = 'bestaudio/best'
 
     options = {
         'format': format_opt,
@@ -196,7 +408,7 @@ def worker(folder, url, bitrate=192, fmt='mp3', start=None, end=None):
         ext = 'mp3'
 
     source.unlink(missing_ok=True)
-    raw_title = re.sub(r'[<>:"/\\|?*\x00-\x1f]', '_', info.get('title') or 'youtube-clip')[:100].strip('. ')
+    raw_title = re.sub(r'[<>:"/\\|?*\x00-\x1f]', '_', custom_title or info.get('title') or 'video')[:100].strip('. ')
     if is_clip:
         time_slug = f"[{format_time_slug(start)} - {format_time_slug(end)}]"
         filename = f"{raw_title} {time_slug}.{ext}"
@@ -494,6 +706,18 @@ class Handler(SimpleHTTPRequestHandler):
             except Exception as e:
                 return self.json_response(400, {'error': f'Could not encode MP3: {str(e)}'})
 
+        if path == '/api/probe':
+            try:
+                length = int(self.headers.get('Content-Length', '0'))
+                if not 0 < length <= 16384:
+                    raise ValueError('Invalid request size.')
+                body = json.loads(self.rfile.read(length))
+                url = clean_web_url(body.get('url'))
+                videos = probe_media_from_url(url)
+                return self.json_response(200, {'ok': True, 'videos': videos})
+            except Exception as e:
+                return self.json_response(400, {'error': str(e) or 'Could not inspect webpage for videos.'})
+
         if path != '/api/jobs':
             return self.send_error(404)
         try:
@@ -501,8 +725,13 @@ class Handler(SimpleHTTPRequestHandler):
             if not 0 < length <= 16384:
                 raise ValueError('Invalid request size.')
             body = json.loads(self.rfile.read(length))
-            url = canonical_url(body.get('url'))
+            is_generic = bool(body.get('is_generic', False))
+            url = clean_web_url(body.get('url')) if is_generic else canonical_url(body.get('url'))
+            format_id = body.get('format_id')
+            custom_title = body.get('title')
             fmt = str(body.get('format', 'mp3')).lower()
+            if format_id == 'audio':
+                fmt = 'mp3'
             if fmt not in ('mp3', 'mp4'):
                 raise ValueError('Format must be mp3 or mp4.')
             bitrate = int(body.get('bitrate', 192))
@@ -537,6 +766,9 @@ class Handler(SimpleHTTPRequestHandler):
             job_config = {
                 'url': url,
                 'format': fmt,
+                'format_id': format_id,
+                'is_generic': is_generic,
+                'title': custom_title,
                 'bitrate': bitrate,
                 'start': start,
                 'end': end
@@ -558,12 +790,17 @@ if __name__ == '__main__' and len(sys.argv) >= 3 and sys.argv[1] == '--worker':
             if not job_file.exists():
                 raise ValueError('Job configuration not found.')
             cfg = json.loads(job_file.read_text(encoding='utf-8'))
+            is_gen = bool(cfg.get('is_generic', False))
+            url_val = clean_web_url(cfg['url']) if is_gen else canonical_url(cfg['url'])
             worker(folder,
-                   url=canonical_url(cfg['url']),
+                   url=url_val,
                    bitrate=int(cfg.get('bitrate', 192)),
                    fmt=str(cfg.get('format', 'mp3')),
                    start=cfg.get('start'),
-                   end=cfg.get('end'))
+                   end=cfg.get('end'),
+                   format_id=cfg.get('format_id'),
+                   is_generic=is_gen,
+                   custom_title=cfg.get('title'))
     except Exception as error:
         text = re.sub(r'\x1b\[[0-9;]*m', '', str(error))
         write_status(folder, state='error', message=text[:800])
