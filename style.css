@@ -786,3 +786,40 @@ kbd { background: #ebeee6; border: 1px solid #d3d9cb; border-radius: 4px; paddin
   .detected-vid-actions { flex-direction: column; align-items: stretch; }
   .vid-download-btn { width: 100%; text-align: center; }
 }
+
+/* Live Rate Controls */
+.rate-label-row { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+.rate-live-btn {
+  background: #f0f7f2;
+  border: 1px solid #b8dac0;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #245342;
+  padding: 1px 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+  line-height: 1.4;
+}
+.rate-live-btn:hover {
+  background: #245342;
+  color: #fff;
+  border-color: #245342;
+}
+.rate-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.rate-live-badge {
+  position: absolute;
+  right: -52px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #16a34a;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 4px;
+  padding: 2px 5px;
+  white-space: nowrap;
+}

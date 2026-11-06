@@ -4941,6 +4941,46 @@ function renderExpenseSplitter() {
 }
 
 // ---------------- Initialize & Event Listeners ----------------
+
+async function fetchLiveExchangeRate(currency, showFeedback = true) {
+  if (currency === 'GBP') return;
+  const btn = $('btn-fetch-live-rate');
+  const badge = $('rate-live-badge');
+  const rateInput = $('trip-gbp-rate');
+  if (btn) btn.textContent = '⏳…';
+
+  try {
+    const res = await fetch(`https://open.er-api.com/v6/latest/${currency}`, { cache: 'no-cache' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    if (data && data.rates && typeof data.rates.GBP === 'number') {
+      const liveRate = Number(data.rates.GBP.toFixed(4));
+      currentTrip.gbpRate = liveRate;
+      if (rateInput) rateInput.value = liveRate;
+      saveTripToStorage();
+      renderExpenseSplitter();
+
+      if (badge && showFeedback) {
+        badge.hidden = false;
+        badge.textContent = 'Live ✓';
+        setTimeout(() => { badge.hidden = true; }, 3000);
+      }
+    }
+  } catch (err) {
+    console.warn('Could not fetch live rate (using default/cached rate):', err);
+    if (badge && showFeedback) {
+      badge.hidden = false;
+      badge.textContent = 'Offline';
+      badge.style.color = '#b83d25';
+      badge.style.background = '#fcf1f0';
+      badge.style.borderColor = '#f1c7c2';
+      setTimeout(() => { badge.hidden = true; }, 3000);
+    }
+  } finally {
+    if (btn) btn.textContent = '⚡ Live';
+  }
+}
+
 function initExpenseSplitter() {
   currentTrip = loadTripFromStorage() || createDefaultTrip();
 
@@ -4955,12 +4995,19 @@ function initExpenseSplitter() {
 
   const curSelect = $('trip-currency-select');
   if (curSelect) {
-    curSelect.onchange = () => {
+    curSelect.onchange = async () => {
       const newCur = curSelect.value;
       currentTrip.currency = newCur;
-      currentTrip.gbpRate = EXPENSE_CURRENCIES[newCur]?.defaultRateToGbp || 1.0;
-      saveTripToStorage();
-      renderExpenseSplitter();
+      if (newCur === 'GBP') {
+        currentTrip.gbpRate = 1.0;
+        saveTripToStorage();
+        renderExpenseSplitter();
+      } else {
+        currentTrip.gbpRate = EXPENSE_CURRENCIES[newCur]?.defaultRateToGbp || 1.0;
+        saveTripToStorage();
+        renderExpenseSplitter();
+        await fetchLiveExchangeRate(newCur);
+      }
     };
   }
 
@@ -5314,6 +5361,13 @@ function initExpenseSplitter() {
       }).catch(err => {
         alert('Could not copy to clipboard: ' + err);
       });
+    };
+  }
+
+    const btnLiveRate = $('btn-fetch-live-rate');
+  if (btnLiveRate) {
+    btnLiveRate.onclick = () => {
+      fetchLiveExchangeRate(currentTrip.currency || 'EUR', true);
     };
   }
 

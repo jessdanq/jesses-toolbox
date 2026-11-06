@@ -169,8 +169,14 @@
     </div>
 
     <div class="trip-input-group" id="expense-rate-wrap">
-      <label for="trip-gbp-rate" class="trip-bar-label" title="Exchange rate to GBP for secondary preview">RATE (1 <span id="rate-symbol-label">€</span> = £)</label>
-      <input type="number" id="trip-gbp-rate" step="0.001" min="0.001" class="expense-rate-input" value="0.855">
+      <div class="rate-label-row">
+        <label for="trip-gbp-rate" class="trip-bar-label" title="Exchange rate to GBP for secondary preview">RATE (1 <span id="rate-symbol-label">€</span> = £)</label>
+        <button type="button" id="btn-fetch-live-rate" class="rate-live-btn" title="Fetch live market exchange rate">⚡ Live</button>
+      </div>
+      <div class="rate-input-wrap">
+        <input type="number" id="trip-gbp-rate" step="0.0001" min="0.0001" class="expense-rate-input" value="0.855">
+        <span id="rate-live-badge" class="rate-live-badge" hidden>Live ✓</span>
+      </div>
     </div>
 
     <div class="trip-input-group trip-dates-group">
