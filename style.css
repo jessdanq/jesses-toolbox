@@ -524,7 +524,51 @@ kbd { background: #ebeee6; border: 1px solid #d3d9cb; border-radius: 4px; paddin
 .expense-rate-input { font-size: 13px; font-weight: 600; color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; background: #fff; width: 90px; }
 .dates-inline { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
 .expense-date-input { font-size: 12px; border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; background: #fff; color: var(--ink); }
-.expense-trip-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+/* Supabase Cloud Sync Styles */
+.expense-trip-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; flex-wrap: wrap; }
+.expense-cloud-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 11px;
+  background: #f0f7f2;
+  border: 1px solid #c2dec9;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #245342;
+  user-select: none;
+  white-space: nowrap;
+}
+.expense-cloud-pill.syncing {
+  background: #fbf5e6;
+  border-color: #ebd193;
+  color: #926207;
+}
+.expense-cloud-pill.offline {
+  background: #fcf1f0;
+  border-color: #f1c7c2;
+  color: #b83d25;
+}
+.cloud-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #245342;
+  display: inline-block;
+}
+.expense-cloud-pill.syncing .cloud-dot {
+  background: #d97706;
+  animation: pulse-cloud 0.8s infinite alternate;
+}
+.expense-cloud-pill.offline .cloud-dot {
+  background: #b83d25;
+}
+@keyframes pulse-cloud {
+  from { opacity: 0.3; transform: scale(0.85); }
+  to { opacity: 1; transform: scale(1.2); }
+}
+
 
 /* Members Bar */
 .expense-members-card { background: #fffef9; border: 1px solid var(--line); border-radius: 14px; padding: 16px 20px; margin-bottom: 20px; display: flex; flex-direction: column; gap: 12px; }

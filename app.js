@@ -20,7 +20,7 @@ function route() {
   if (page !== 'audio-looper' && typeof stopLooper === 'function' && looperPlaying) {
     stopLooper();
   }
-  if (page === 'expense-splitter' && typeof renderExpenseSplitter === 'function') renderExpenseSplitter();
+  if (page === 'expense-splitter') { if (typeof renderExpenseSplitter === 'function') renderExpenseSplitter(); if (typeof fetchTripFromCloud === 'function') fetchTripFromCloud(); }
   window.scrollTo(0, 0);
 }
 window.addEventListener('hashchange', route);
@@ -4054,9 +4054,25 @@ function createDefaultTrip() {
   };
 }
 
+const SUPABASE_CONFIG = {
+  url: 'https://aqmbqdccmarkzbflphzy.supabase.co',
+  anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFxbWJxZGNjbWFya3piZmxwaHp5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIwOTEzOTAsImV4cCI6MjEwNzY2NzM5MH0.ECiZEEK1skpVlZNsgZMYp20tC0i3G00ChDQ6_d9k8Vs',
+  table: 'holiday_trips'
+};
+
 let currentTrip = null;
 let activeSplitMode = 'equal';
 let simplifyDebtsActive = true;
+let cloudSyncTimer = null;
+let isSyncingToCloud = false;
+
+function setCloudSyncStatus(status, text) {
+  const pill = $('expense-cloud-pill');
+  const txt = $('expense-cloud-text');
+  if (!pill || !txt) return;
+  pill.className = 'expense-cloud-pill ' + status;
+  txt.textContent = text;
+}
 
 function loadTripFromStorage() {
   try {
@@ -4068,13 +4084,130 @@ function loadTripFromStorage() {
   return null;
 }
 
-function saveTripToStorage() {
+function saveTripToStorage(skipCloudSync = false) {
   if (!currentTrip) return;
+  currentTrip.updatedAt = new Date().toISOString();
   try {
     localStorage.setItem(EXPENSE_STORAGE_KEY, JSON.stringify(currentTrip));
   } catch (err) {
     console.error('Failed to save trip to storage:', err);
   }
+  if (!skipCloudSync) {
+    debounceCloudSync();
+  }
+}
+
+function debounceCloudSync() {
+  if (cloudSyncTimer) clearTimeout(cloudSyncTimer);
+  setCloudSyncStatus('syncing', 'Syncing…');
+  cloudSyncTimer = setTimeout(() => {
+    pushTripToCloud();
+  }, 400);
+}
+
+async function pushTripToCloud() {
+  if (!currentTrip || isSyncingToCloud) return;
+  isSyncingToCloud = true;
+  try {
+    const updatedAt = currentTrip.updatedAt || new Date().toISOString();
+    currentTrip.updatedAt = updatedAt;
+    const res = await fetch(`${SUPABASE_CONFIG.url}/rest/v1/${SUPABASE_CONFIG.table}`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_CONFIG.anonKey,
+        'Authorization': `Bearer ${SUPABASE_CONFIG.anonKey}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates'
+      },
+      body: JSON.stringify([{
+        id: currentTrip.id || 'default_holiday_trip',
+        title: currentTrip.title || 'Holiday Trip',
+        currency: currentTrip.currency || 'EUR',
+        data: currentTrip,
+        updated_at: updatedAt
+      }])
+    });
+    if (!res.ok) throw new Error('Cloud push failed HTTP ' + res.status);
+    setCloudSyncStatus('synced', 'Supabase Synced ✓');
+    updateCloudTripsDropdown();
+  } catch (err) {
+    console.warn('Cloud sync error (local backup active):', err);
+    setCloudSyncStatus('offline', 'Offline (Saved locally)');
+  } finally {
+    isSyncingToCloud = false;
+  }
+}
+
+async function fetchTripFromCloud(force = false) {
+  try {
+    setCloudSyncStatus('syncing', 'Checking cloud…');
+    const res = await fetch(`${SUPABASE_CONFIG.url}/rest/v1/${SUPABASE_CONFIG.table}?select=*&order=updated_at.desc`, {
+      headers: {
+        'apikey': SUPABASE_CONFIG.anonKey,
+        'Authorization': `Bearer ${SUPABASE_CONFIG.anonKey}`
+      }
+    });
+    if (!res.ok) throw new Error('Cloud fetch failed HTTP ' + res.status);
+    const rows = await res.json();
+    if (rows && rows.length > 0) {
+      let matchedRow = rows.find(r => r.id === currentTrip?.id);
+      if (!matchedRow) matchedRow = rows[0];
+
+      const remoteTrip = matchedRow.data;
+      const remoteTime = new Date(matchedRow.updated_at).getTime();
+      const localTime = new Date(currentTrip?.updatedAt || 0).getTime();
+
+      if (force || !currentTrip || remoteTime > localTime) {
+        currentTrip = remoteTrip;
+        currentTrip.updatedAt = matchedRow.updated_at;
+        saveTripToStorage(true);
+        renderExpenseSplitter();
+        setCloudSyncStatus('synced', 'Updated from Supabase ✓');
+      } else if (localTime > remoteTime) {
+        await pushTripToCloud();
+      } else {
+        setCloudSyncStatus('synced', 'Supabase Synced ✓');
+      }
+      populateCloudTripsDropdown(rows);
+    } else {
+      await pushTripToCloud();
+    }
+  } catch (err) {
+    console.warn('Could not fetch from Supabase (using local copy):', err);
+    setCloudSyncStatus('offline', 'Offline (Local mode)');
+  }
+}
+
+async function updateCloudTripsDropdown() {
+  try {
+    const res = await fetch(`${SUPABASE_CONFIG.url}/rest/v1/${SUPABASE_CONFIG.table}?select=id,title,currency,updated_at&order=updated_at.desc`, {
+      headers: {
+        'apikey': SUPABASE_CONFIG.anonKey,
+        'Authorization': `Bearer ${SUPABASE_CONFIG.anonKey}`
+      }
+    });
+    if (!res.ok) return;
+    const rows = await res.json();
+    populateCloudTripsDropdown(rows);
+  } catch {}
+}
+
+function populateCloudTripsDropdown(rows) {
+  const select = $('trip-saved-select');
+  if (!select) return;
+  if (!rows || rows.length <= 1) {
+    select.style.display = 'none';
+    return;
+  }
+  select.style.display = 'inline-block';
+  select.innerHTML = '';
+  rows.forEach(r => {
+    const opt = document.createElement('option');
+    opt.value = r.id;
+    opt.textContent = `${r.title || 'Untitled Trip'} (${EXPENSE_CURRENCIES[r.currency]?.symbol || r.currency || '€'})`;
+    if (currentTrip && r.id === currentTrip.id) opt.selected = true;
+    select.appendChild(opt);
+  });
 }
 
 // ---------------- Financial Calculations ----------------
@@ -5183,6 +5316,60 @@ function initExpenseSplitter() {
       });
     };
   }
+
+  const syncBtn = $('btn-sync-cloud');
+  if (syncBtn) {
+    syncBtn.onclick = () => fetchTripFromCloud(true);
+  }
+
+  const tripSavedSelect = $('trip-saved-select');
+  if (tripSavedSelect) {
+    tripSavedSelect.onchange = async () => {
+      const selectedId = tripSavedSelect.value;
+      if (!selectedId || selectedId === currentTrip?.id) return;
+      try {
+        setCloudSyncStatus('syncing', 'Loading trip…');
+        const res = await fetch(`${SUPABASE_CONFIG.url}/rest/v1/${SUPABASE_CONFIG.table}?id=eq.${selectedId}`, {
+          headers: {
+            'apikey': SUPABASE_CONFIG.anonKey,
+            'Authorization': `Bearer ${SUPABASE_CONFIG.anonKey}`
+          }
+        });
+        const rows = await res.json();
+        if (rows && rows[0]) {
+          currentTrip = rows[0].data;
+          currentTrip.updatedAt = rows[0].updated_at;
+          saveTripToStorage(true);
+          renderExpenseSplitter();
+          setCloudSyncStatus('synced', 'Trip loaded ✓');
+        }
+      } catch (err) {
+        alert('Could not switch trip: ' + err.message);
+      }
+    };
+  }
+
+  // Periodic cloud sync & tab focus sync
+  setInterval(() => {
+    if (location.hash === '#expense-splitter' && document.visibilityState === 'visible' && !isSyncingToCloud) {
+      fetchTripFromCloud();
+    }
+  }, 25000);
+
+  window.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && location.hash === '#expense-splitter') {
+      fetchTripFromCloud();
+    }
+  });
+
+  window.addEventListener('focus', () => {
+    if (location.hash === '#expense-splitter') {
+      fetchTripFromCloud();
+    }
+  });
+
+  // Initial cloud pull
+  fetchTripFromCloud();
 
   renderExpenseSplitter();
 }

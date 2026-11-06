@@ -184,6 +184,12 @@
   </div>
 
   <div class="expense-trip-actions">
+    <div class="expense-cloud-pill" id="expense-cloud-pill" title="Supabase Cloud Sync: real-time sync across all devices and browsers">
+      <span class="cloud-dot" id="expense-cloud-dot"></span>
+      <span id="expense-cloud-text">Supabase Synced</span>
+    </div>
+    <button type="button" id="btn-sync-cloud" class="secondary-btn sync-btn" title="Sync now with Supabase cloud">🔄 Sync</button>
+    <select id="trip-saved-select" class="expense-select" style="display:none;" title="Switch between saved cloud trips"></select>
     <button type="button" id="btn-new-trip" class="secondary-btn" title="Create a new trip">+ New Trip</button>
     <button type="button" id="btn-export-trip-json" class="secondary-btn" title="Backup or export trip data to JSON">Export JSON</button>
     <label for="input-import-trip-json" class="secondary-btn" style="cursor:pointer;margin:0;" title="Import trip from JSON">Import</label>
