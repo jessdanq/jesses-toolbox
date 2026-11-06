@@ -4055,8 +4055,8 @@ function createDefaultTrip() {
 }
 
 const SUPABASE_CONFIG = {
-  url: 'https://aqmbqdccmarkzbflphzy.supabase.co',
-  anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFxbWJxZGNjbWFya3piZmxwaHp5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIwOTEzOTAsImV4cCI6MjEwNzY2NzM5MH0.ECiZEEK1skpVlZNsgZMYp20tC0i3G00ChDQ6_d9k8Vs',
+  url: 'https://gwawrwizxrjerbggzgiw.supabase.co',
+  anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd3YXdyd2l6eHJqZXJiZ2d6Z2l3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM5ODkwNzEsImV4cCI6MjEwOTU2NTA3MX0.ndgvdbeZaI01KO2wxfVTPOIymMD7E_jit9ybo5fjw1o',
   table: 'holiday_trips'
 };
 
