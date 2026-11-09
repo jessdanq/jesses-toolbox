@@ -341,6 +341,14 @@
       
       <div class="settlement-transfers-list" id="settlement-transfers-list"></div>
 
+      <div class="settlement-payments-section" id="settlement-payments-section">
+        <div class="settlement-payments-header">
+          <div class="section-label">PAYMENT HISTORY (<span id="payments-count">0</span>)</div>
+          <button type="button" id="btn-open-payment-modal" class="text-btn">+ Record Part Payment</button>
+        </div>
+        <div class="settlement-payments-list" id="settlement-payments-list"></div>
+      </div>
+
       <div class="settlement-whatsapp-box">
         <button type="button" id="btn-copy-whatsapp" class="btn-whatsapp">
           <span class="whatsapp-icon">📱</span> Copy WhatsApp / Group Chat Summary
@@ -375,6 +383,119 @@
         <div class="category-bars-container" id="category-bars-container"></div>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- Modal 1: Edit Expense Modal -->
+<div id="expense-edit-modal" class="toolbox-modal-overlay" hidden>
+  <div class="toolbox-modal-card">
+    <div class="toolbox-modal-header">
+      <div class="modal-title-wrap">
+        <h3>Edit Expense</h3>
+        <span class="modal-sub">Modify details, payer, or split distribution</span>
+      </div>
+      <button type="button" id="btn-close-edit-modal" class="modal-close-btn" title="Close">✕</button>
+    </div>
+    <form id="expense-edit-form" class="toolbox-modal-body">
+      <input type="hidden" id="edit-exp-id">
+      
+      <div class="expense-form-row">
+        <div class="form-group flex-2">
+          <label for="edit-exp-desc">Description</label>
+          <input type="text" id="edit-exp-desc" placeholder="e.g. Villa Airbnb, Tapas Dinner…" required>
+        </div>
+        <div class="form-group flex-1">
+          <label for="edit-exp-amount">Amount (<span class="exp-cur-symbol">€</span>)</label>
+          <input type="number" id="edit-exp-amount" step="0.01" min="0.01" placeholder="0.00" required>
+        </div>
+      </div>
+
+      <div class="expense-form-row">
+        <div class="form-group flex-1">
+          <label for="edit-exp-payer">Paid By</label>
+          <select id="edit-exp-payer" class="expense-select"></select>
+        </div>
+        <div class="form-group flex-1">
+          <label for="edit-exp-category">Category</label>
+          <select id="edit-exp-category" class="expense-select">
+            <option value="food">🍽️ Food & Drinks</option>
+            <option value="lodging">🏠 Lodging & Stay</option>
+            <option value="transport">🚗 Transport & Fuel</option>
+            <option value="activities">🎟️ Activities & Tours</option>
+            <option value="shopping">🛒 Shopping & Groceries</option>
+            <option value="other">✨ Other</option>
+          </select>
+        </div>
+        <div class="form-group flex-1">
+          <label for="edit-exp-date">Date</label>
+          <input type="date" id="edit-exp-date">
+        </div>
+      </div>
+
+      <div class="expense-split-section">
+        <div class="section-label">HOW TO SPLIT THIS BILL:</div>
+        <div class="expense-split-tabs edit-split-tabs">
+          <button type="button" class="split-tab active" data-editsplit="equal">Equal (1/N)</button>
+          <button type="button" class="split-tab" data-editsplit="exact">Exact Amounts</button>
+          <button type="button" class="split-tab" data-editsplit="percent">Percentages (%)</button>
+          <button type="button" class="split-tab" data-editsplit="shares">Shares / Weights</button>
+        </div>
+
+        <div class="expense-allocations-box" id="edit-allocations-container"></div>
+        <div class="expense-alloc-status" id="edit-alloc-status"></div>
+      </div>
+
+      <div class="toolbox-modal-footer">
+        <button type="button" id="btn-cancel-edit-modal" class="secondary-btn">Cancel</button>
+        <button type="submit" class="expense-submit-btn">✓ Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal 2: Record Part/Full Payment Modal -->
+<div id="expense-payment-modal" class="toolbox-modal-overlay" hidden>
+  <div class="toolbox-modal-card modal-sm">
+    <div class="toolbox-modal-header">
+      <div class="modal-title-wrap">
+        <h3 id="payment-modal-title">Record Payment / Settle Up</h3>
+        <span class="modal-sub">Log a part payment or full settlement between friends</span>
+      </div>
+      <button type="button" id="btn-close-payment-modal" class="modal-close-btn" title="Close">✕</button>
+    </div>
+    <form id="expense-payment-form" class="toolbox-modal-body">
+      <div class="expense-form-row">
+        <div class="form-group flex-1">
+          <label for="pay-from-member">Who Paid (Debtor)</label>
+          <select id="pay-from-member" class="expense-select" required></select>
+        </div>
+        <div class="form-group flex-1">
+          <label for="pay-to-member">Paid To (Creditor)</label>
+          <select id="pay-to-member" class="expense-select" required></select>
+        </div>
+      </div>
+
+      <div class="expense-form-row">
+        <div class="form-group flex-1">
+          <label for="pay-amount">Amount (<span class="exp-cur-symbol">€</span>)</label>
+          <input type="number" id="pay-amount" step="0.01" min="0.01" placeholder="0.00" required>
+        </div>
+        <div class="form-group flex-1">
+          <label for="pay-date">Date</label>
+          <input type="date" id="pay-date" required>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="pay-note">Payment Note (Optional)</label>
+        <input type="text" id="pay-note" placeholder="e.g. Revolut, Cash, Part payment, Bank transfer…">
+      </div>
+
+      <div class="toolbox-modal-footer">
+        <button type="button" id="btn-cancel-payment-modal" class="secondary-btn">Cancel</button>
+        <button type="submit" class="expense-submit-btn">✓ Record Payment</button>
+      </div>
+    </form>
   </div>
 </div>
 

@@ -4050,7 +4050,8 @@ function createDefaultTrip() {
         ]
       }
     ],
-    settledTransfers: []
+    settledTransfers: [],
+    payments: []
   };
 }
 
@@ -4077,7 +4078,11 @@ function setCloudSyncStatus(status, text) {
 function loadTripFromStorage() {
   try {
     const raw = localStorage.getItem(EXPENSE_STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const trip = JSON.parse(raw);
+      if (trip && !Array.isArray(trip.payments)) trip.payments = [];
+      return trip;
+    }
   } catch (err) {
     console.error('Failed to load trip from storage:', err);
   }
@@ -4211,11 +4216,11 @@ function populateCloudTripsDropdown(rows) {
 }
 
 // ---------------- Financial Calculations ----------------
-function calculateNetBalances(members, expenses) {
+function calculateNetBalances(members, expenses, payments = []) {
   const balances = {};
-  for (const m of members) balances[m.id] = 0;
+  for (const m of (members || [])) balances[m.id] = 0;
 
-  for (const exp of expenses) {
+  for (const exp of (expenses || [])) {
     const amount = Number(exp.amount) || 0;
     const payerId = exp.paidBy;
 
@@ -4228,6 +4233,17 @@ function calculateNetBalances(members, expenses) {
       if (balances[p.memberId] !== undefined) {
         balances[p.memberId] -= Number(p.amount) || 0;
       }
+    }
+  }
+
+  // Account for payments between members (debt settlements or partial payments)
+  for (const p of (payments || [])) {
+    const amt = Number(p.amount) || 0;
+    if (balances[p.fromId] !== undefined) {
+      balances[p.fromId] += amt; // debtor paying reduces what they owe
+    }
+    if (balances[p.toId] !== undefined) {
+      balances[p.toId] -= amt; // creditor receiving reduces what they are owed
     }
   }
 
@@ -4288,7 +4304,7 @@ function simplifyDebts(balances, membersMap) {
 function calculateDirectDebts(trip, membersMap) {
   const pairDebts = {}; // key: "from_to" -> amount
 
-  for (const exp of trip.expenses) {
+  for (const exp of (trip.expenses || [])) {
     const payerId = exp.paidBy;
     const participants = exp.participants || [];
     for (const p of participants) {
@@ -4311,6 +4327,28 @@ function calculateDirectDebts(trip, membersMap) {
           pairDebts[key] = (pairDebts[key] || 0) + amt;
         }
       }
+    }
+  }
+
+  // Deduct direct payments
+  for (const p of (trip.payments || [])) {
+    const from = p.fromId;
+    const to = p.toId;
+    const amt = Number(p.amount) || 0;
+    const key = `${from}__${to}`;
+    const revKey = `${to}__${from}`;
+
+    if (pairDebts[key]) {
+      if (pairDebts[key] >= amt) {
+        pairDebts[key] -= amt;
+        if (pairDebts[key] <= 0.005) delete pairDebts[key];
+      } else {
+        const rem = amt - pairDebts[key];
+        delete pairDebts[key];
+        if (rem > 0.005) pairDebts[revKey] = (pairDebts[revKey] || 0) + rem;
+      }
+    } else {
+      pairDebts[revKey] = (pairDebts[revKey] || 0) + amt;
     }
   }
 
@@ -4432,48 +4470,84 @@ function parseSmartPasteLines(text, members) {
   return parsed;
 }
 
+function stripEmojis(str) {
+  if (!str) return '';
+  return str.replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}\uFE0F\u200D]/gu, '').replace(/[ \t]+/g, ' ').trim();
+}
+
 function generateWhatsAppSummary(trip, simplified = true) {
   const rate = Number(trip.gbpRate) || 1;
-  const totalSpent = trip.expenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+  const cleanTitle = stripEmojis(trip.title) || 'Holiday Expense Summary';
+  const totalSpent = (trip.expenses || []).reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
   const avgPerson = trip.members.length > 0 ? (totalSpent / trip.members.length) : 0;
 
   const totalFmt = formatExpenseAmount(totalSpent, trip.currency, rate).text;
   const avgFmt = formatExpenseAmount(avgPerson, trip.currency, rate).text;
 
   const membersMap = Object.fromEntries(trip.members.map(m => [m.id, m]));
-  const netBalances = calculateNetBalances(trip.members, trip.expenses);
+  const payments = trip.payments || [];
+  const netBalances = calculateNetBalances(trip.members, trip.expenses, payments);
   const transfers = simplified ? simplifyDebts(netBalances, membersMap) : calculateDirectDebts(trip, membersMap);
 
-  let msg = `🌴 *${trip.title} — Holiday Expense Summary*\n`;
-  msg += `💰 *Total Trip Spend:* ${totalFmt}\n`;
-  msg += `👥 *Average Per Person:* ${avgFmt}\n`;
-  msg += `📝 *Total Expenses Logged:* ${trip.expenses.length}\n\n`;
+  const totalPaid = payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+  const paidFmt = formatExpenseAmount(totalPaid, trip.currency, rate).text;
 
-  msg += `📊 *Individual Balances:*\n`;
+  let msg = `*TRIP EXPENSE SUMMARY: ${cleanTitle.toUpperCase()}*\n`;
+  msg += `Generated: ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}\n\n`;
+
+  msg += `*FINANCIAL OVERVIEW*\n`;
+  msg += `----------------------------------------\n`;
+  msg += `• Total Spend: ${totalFmt}\n`;
+  msg += `• Average per Person: ${avgFmt}\n`;
+  msg += `• Total Expenses Logged: ${trip.expenses.length}\n`;
+  if (payments.length > 0) {
+    msg += `• Payments Recorded to Date: ${paidFmt} (${payments.length} transaction${payments.length === 1 ? '' : 's'})\n`;
+  }
+  msg += `\n`;
+
+  msg += `*NET BALANCES*\n`;
+  msg += `----------------------------------------\n`;
   for (const m of trip.members) {
+    const cleanName = stripEmojis(m.name) || m.name;
     const bal = netBalances[m.id] || 0;
     const absFmt = formatExpenseAmount(Math.abs(bal), trip.currency, rate).text;
     if (bal > 0.005) {
-      msg += `• ${m.name}: +${absFmt} (gets back 🟢)\n`;
+      msg += `• ${cleanName}: +${absFmt} [To Receive]\n`;
     } else if (bal < -0.005) {
-      msg += `• ${m.name}: -${absFmt} (owes 🔴)\n`;
+      msg += `• ${cleanName}: -${absFmt} [To Pay]\n`;
     } else {
-      msg += `• ${m.name}: Settled up ⚪\n`;
+      msg += `• ${cleanName}: Settled (0.00)\n`;
     }
   }
 
-  msg += `\n🤝 *How to Settle Up (${simplified ? 'Simplest Route' : 'Direct Payments'}):*\n`;
+  const modeLabel = simplified ? 'Optimal Debt Simplification' : 'Direct Individual Debts';
+  msg += `\n*SETTLEMENT INSTRUCTIONS (${modeLabel})*\n`;
+  msg += `----------------------------------------\n`;
   if (transfers.length === 0) {
-    msg += `🎉 All settled up! No payments needed.\n`;
+    msg += `All balances are fully settled. No payments required.\n`;
   } else {
     transfers.forEach((t, i) => {
+      const from = stripEmojis(t.fromName);
+      const to = stripEmojis(t.toName);
       const amtFmt = formatExpenseAmount(t.amount, trip.currency, rate).text;
-      msg += `${i + 1}. *${t.fromName}* pays *${t.toName}*: ${amtFmt}\n`;
+      msg += `${i + 1}. ${from} pays ${to}: ${amtFmt}\n`;
     });
   }
 
-  msg += `\n_Generated with Jesse's Toolbox_`;
-  return msg;
+  if (payments.length > 0) {
+    msg += `\n*PAYMENTS LOGGED TO DATE*\n`;
+    msg += `----------------------------------------\n`;
+    payments.forEach(p => {
+      const from = stripEmojis(membersMap[p.fromId]?.name || 'Unknown');
+      const to = stripEmojis(membersMap[p.toId]?.name || 'Unknown');
+      const pAmt = formatExpenseAmount(p.amount, trip.currency, rate).text;
+      const noteStr = p.note ? ` (${stripEmojis(p.note)})` : '';
+      msg += `• ${p.date || 'Payment'}: ${from} paid ${to} ${pAmt}${noteStr}\n`;
+    });
+  }
+
+  msg += `\nShared via Jesse's Toolbox`;
+  return stripEmojis(msg);
 }
 
 // ---------------- UI Rendering ----------------
@@ -4652,6 +4726,9 @@ function validateAllocations(mode) {
 
 function renderExpenseSplitter() {
   if (!currentTrip) currentTrip = loadTripFromStorage() || createDefaultTrip();
+  if (!Array.isArray(currentTrip.payments)) currentTrip.payments = [];
+  if (!Array.isArray(currentTrip.expenses)) currentTrip.expenses = [];
+  if (!Array.isArray(currentTrip.settledTransfers)) currentTrip.settledTransfers = [];
 
   const sym = EXPENSE_CURRENCIES[currentTrip.currency]?.symbol || currentTrip.currency;
   const isGbp = currentTrip.currency === 'GBP';
@@ -4746,7 +4823,7 @@ function renderExpenseSplitter() {
 
   // 4. Balances & Settlement Calculations
   const membersMap = Object.fromEntries(currentTrip.members.map(m => [m.id, m]));
-  const netBalances = calculateNetBalances(currentTrip.members, currentTrip.expenses);
+  const netBalances = calculateNetBalances(currentTrip.members, currentTrip.expenses, currentTrip.payments || []);
 
   const transfers = simplifyDebtsActive
     ? simplifyDebts(netBalances, membersMap)
@@ -4760,7 +4837,7 @@ function renderExpenseSplitter() {
   if (transfersList) {
     transfersList.innerHTML = '';
     if (transfers.length === 0) {
-      transfersList.innerHTML = '<div style="padding:16px;color:var(--muted);font-size:12px;font-weight:600">🎉 All settled up! No outstanding debts in this trip.</div>';
+      transfersList.innerHTML = '<div style="padding:16px;color:var(--muted);font-size:12px;font-weight:600">All settled up! No outstanding debts in this trip.</div>';
       if (settlementSub) settlementSub.textContent = 'Everyone has paid their exact share.';
     } else {
       if (settlementSub) {
@@ -4775,36 +4852,97 @@ function renderExpenseSplitter() {
         card.className = 'transfer-card' + (isPaid ? ' is-paid' : '');
 
         const amtFmt = formatExpenseAmount(t.amount, currentTrip.currency, rate);
+        const pairPayments = (currentTrip.payments || []).filter(p => p.fromId === t.fromId && p.toId === t.toId);
+        const totalPaidPair = pairPayments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
+
         card.innerHTML = `
-          <div class="transfer-parties">
-            <span class="transfer-party">${t.fromName}</span>
-            <span class="transfer-arrow">➔</span>
-            <span class="transfer-party">${t.toName}</span>
-          </div>
-          <div class="transfer-actions">
+          <div class="transfer-card-top">
+            <div class="transfer-parties">
+              <span class="transfer-party">${t.fromName}</span>
+              <span class="transfer-arrow">➔</span>
+              <span class="transfer-party">${t.toName}</span>
+            </div>
             <div class="transfer-amounts">
               <span class="transfer-primary">${amtFmt.local}</span>
               ${amtFmt.gbp ? `<span class="transfer-secondary">~${amtFmt.gbp}</span>` : ''}
             </div>
-            <label title="Mark this transfer as paid" style="display:flex;align-items:center;cursor:pointer;gap:4px;font-size:11px;font-weight:700">
-              <input type="checkbox" class="transfer-paid-checkbox" data-transfer-key="${t.key}" ${isPaid ? 'checked' : ''}>
-              <span class="transfer-paid-label">${isPaid ? 'Paid ✓' : 'Mark'}</span>
-            </label>
+          </div>
+          <div class="transfer-card-bottom">
+            <div class="transfer-debt-status">
+              ${totalPaidPair > 0
+                ? `<span class="transfer-paid-badge">${formatExpenseAmount(totalPaidPair, currentTrip.currency, rate).local} paid to date</span>`
+                : `<span>Remaining debt: <strong>${amtFmt.local}</strong></span>`
+              }
+            </div>
+            <div class="transfer-actions-group">
+              <button type="button" class="btn-part-pay" data-from-id="${t.fromId}" data-to-id="${t.toId}" data-rem-amt="${t.amount}" title="Log a partial payment">Part Pay</button>
+              <button type="button" class="btn-settle-full" data-from-id="${t.fromId}" data-to-id="${t.toId}" data-full-amt="${t.amount}" title="Log full settlement">Settle Full</button>
+            </div>
           </div>
         `;
         transfersList.appendChild(card);
       });
 
-      transfersList.querySelectorAll('.transfer-paid-checkbox').forEach(chk => {
-        chk.onchange = () => {
-          const key = chk.getAttribute('data-transfer-key');
-          if (chk.checked) {
-            if (!currentTrip.settledTransfers.includes(key)) currentTrip.settledTransfers.push(key);
-          } else {
-            currentTrip.settledTransfers = currentTrip.settledTransfers.filter(k => k !== key);
+      transfersList.querySelectorAll('.btn-part-pay').forEach(btn => {
+        btn.onclick = () => {
+          const fromId = btn.getAttribute('data-from-id');
+          const toId = btn.getAttribute('data-to-id');
+          openPaymentModal(fromId, toId, '', 'Part payment');
+        };
+      });
+
+      transfersList.querySelectorAll('.btn-settle-full').forEach(btn => {
+        btn.onclick = () => {
+          const fromId = btn.getAttribute('data-from-id');
+          const toId = btn.getAttribute('data-to-id');
+          const fullAmt = btn.getAttribute('data-full-amt');
+          openPaymentModal(fromId, toId, fullAmt, 'Full settlement');
+        };
+      });
+    }
+  }
+
+  // Render Logged Payments Section
+  const paymentsCount = $('payments-count');
+  if (paymentsCount) paymentsCount.textContent = (currentTrip.payments || []).length;
+
+  const paymentsList = $('settlement-payments-list');
+  if (paymentsList) {
+    paymentsList.innerHTML = '';
+    const payments = currentTrip.payments || [];
+    if (payments.length === 0) {
+      paymentsList.innerHTML = '<span style="font-size:11px;color:var(--muted)">No payments or partial settlements recorded yet.</span>';
+    } else {
+      [...payments].reverse().forEach(p => {
+        const item = document.createElement('div');
+        item.className = 'payment-log-item';
+        const fromName = membersMap[p.fromId]?.name || 'Unknown';
+        const toName = membersMap[p.toId]?.name || 'Unknown';
+        const pAmtFmt = formatExpenseAmount(p.amount, currentTrip.currency, rate);
+
+        item.innerHTML = `
+          <div class="payment-log-parties">
+            <span>${fromName}</span>
+            <span style="color:var(--muted)">➔</span>
+            <span>${toName}</span>
+            <span style="font-size:10px;color:var(--muted);font-weight:400">· ${p.date || 'Today'}${p.note ? ` (${p.note})` : ''}</span>
+          </div>
+          <div class="payment-log-right">
+            <span class="payment-log-amt">${pAmtFmt.local}</span>
+            <button type="button" class="payment-log-del" data-payment-id="${p.id}" title="Remove payment">✕</button>
+          </div>
+        `;
+        paymentsList.appendChild(item);
+      });
+
+      paymentsList.querySelectorAll('.payment-log-del').forEach(btn => {
+        btn.onclick = () => {
+          const pId = btn.getAttribute('data-payment-id');
+          if (confirm('Delete this recorded payment?')) {
+            currentTrip.payments = currentTrip.payments.filter(p => p.id !== pId);
+            saveTripToStorage();
+            renderExpenseSplitter();
           }
-          saveTripToStorage();
-          renderExpenseSplitter();
         };
       });
     }
@@ -4841,7 +4979,7 @@ function renderExpenseSplitter() {
     });
   }
 
-  // 5. Expense History Ledger
+  // 5. Expense History Ledger (Expandable Breakdown + Edit)
   $('ledger-count').textContent = currentTrip.expenses.length;
   const ledgerList = $('expense-ledger-list');
   if (ledgerList) {
@@ -4849,49 +4987,161 @@ function renderExpenseSplitter() {
     if (currentTrip.expenses.length === 0) {
       ledgerList.innerHTML = '<div style="padding:16px;color:var(--muted);font-size:12px;font-weight:600">No expenses recorded yet. Add your first expense above!</div>';
     } else {
-      // Sort newest first
       const sortedExps = [...currentTrip.expenses].reverse();
       sortedExps.forEach(exp => {
         const item = document.createElement('div');
         item.className = 'expense-ledger-item';
+        item.id = `exp-item-${exp.id}`;
 
         const icon = CATEGORY_ICONS[exp.category] || '✨';
-        const payerName = membersMap[exp.paidBy]?.name || 'Unknown';
+        const payerObj = membersMap[exp.paidBy];
+        const payerName = payerObj?.name || 'Unknown';
         const amtFmt = formatExpenseAmount(exp.amount, currentTrip.currency, rate);
 
+        let splitTypeLabel = 'Equal Split (1/N)';
         let splitInfo = 'split equally';
-        if (exp.splitMode === 'exact') splitInfo = 'custom exact split';
-        else if (exp.splitMode === 'percent') splitInfo = 'custom % split';
-        else if (exp.splitMode === 'shares') splitInfo = 'custom shares split';
-        else if (exp.participants?.length < currentTrip.members.length) {
+        if (exp.splitMode === 'exact') {
+          splitTypeLabel = 'Exact Amounts';
+          splitInfo = 'custom exact split';
+        } else if (exp.splitMode === 'percent') {
+          splitTypeLabel = 'Percentages (%)';
+          splitInfo = 'custom % split';
+        } else if (exp.splitMode === 'shares') {
+          splitTypeLabel = 'Shares / Weights';
+          splitInfo = 'custom shares split';
+        } else if (exp.participants?.length < currentTrip.members.length) {
           splitInfo = `split (${exp.participants.length} of ${currentTrip.members.length} friends)`;
         }
 
+        // Build participant rows
+        let participantsHtml = '';
+        currentTrip.members.forEach(m => {
+          const part = (exp.participants || []).find(p => p.memberId === m.id);
+          if (part && part.amount > 0) {
+            const partAmtFmt = formatExpenseAmount(part.amount, currentTrip.currency, rate);
+            const pct = exp.amount > 0 ? Math.round((part.amount / exp.amount) * 100) : 0;
+            participantsHtml += `
+              <div class="exp-participant-row">
+                <div class="exp-part-left">
+                  <span class="alloc-avatar" style="background:${m.color}">${m.name.slice(0, 2).toUpperCase()}</span>
+                  <span>${m.name}</span>
+                </div>
+                <div class="exp-part-right">
+                  <span class="exp-part-amt">${partAmtFmt.local}${partAmtFmt.gbp ? ` <span style="font-weight:400;font-size:10px;color:var(--muted)">(~${partAmtFmt.gbp})</span>` : ''}</span>
+                  <span class="exp-part-pct">(${pct}%)</span>
+                </div>
+              </div>
+            `;
+          } else {
+            participantsHtml += `
+              <div class="exp-participant-row is-excluded">
+                <div class="exp-part-left">
+                  <span class="alloc-avatar" style="background:${m.color};opacity:0.5">${m.name.slice(0, 2).toUpperCase()}</span>
+                  <span style="color:var(--muted)">${m.name}</span>
+                </div>
+                <div class="exp-part-right">
+                  <span class="exp-part-pct" style="color:var(--muted)">Excluded (€0.00)</span>
+                </div>
+              </div>
+            `;
+          }
+        });
+
         item.innerHTML = `
-          <div class="exp-item-left">
-            <span class="exp-cat-badge">${icon}</span>
-            <div class="exp-item-info">
-              <span class="exp-desc-line">${exp.description}</span>
-              <span class="exp-meta-line">Paid by <strong>${payerName}</strong> · ${splitInfo} · ${exp.date || 'Today'}</span>
+          <div class="exp-item-main" data-exp-id="${exp.id}" title="Click to view full breakdown & edit">
+            <div class="exp-item-left">
+              <span class="exp-cat-badge">${icon}</span>
+              <div class="exp-item-info">
+                <span class="exp-desc-line">${exp.description}</span>
+                <span class="exp-meta-line">Paid by <strong>${payerName}</strong> · ${splitInfo} · ${exp.date || 'Today'}</span>
+              </div>
+            </div>
+            <div class="exp-item-right">
+              <div class="exp-amount-block">
+                <span class="exp-local-amt">${amtFmt.local}</span>
+                ${amtFmt.gbp ? `<span class="exp-gbp-amt">~${amtFmt.gbp}</span>` : ''}
+              </div>
+              <span class="exp-expand-chevron">▼</span>
+              <button type="button" class="exp-delete-btn" data-exp-id="${exp.id}" title="Delete expense">✕</button>
             </div>
           </div>
-          <div class="exp-item-right">
-            <div class="exp-amount-block">
-              <span class="exp-local-amt">${amtFmt.local}</span>
-              ${amtFmt.gbp ? `<span class="exp-gbp-amt">~${amtFmt.gbp}</span>` : ''}
+          <div class="exp-item-breakdown">
+            <div class="exp-breakdown-grid">
+              <div class="breakdown-stat">
+                <span class="breakdown-label">Total Amount</span>
+                <strong>${amtFmt.local} ${amtFmt.gbp ? `<span style="font-size:10px;font-weight:400;color:var(--muted)">(~${amtFmt.gbp})</span>` : ''}</strong>
+              </div>
+              <div class="breakdown-stat">
+                <span class="breakdown-label">Paid By</span>
+                <strong>${payerName}</strong>
+              </div>
+              <div class="breakdown-stat">
+                <span class="breakdown-label">Category</span>
+                <strong>${icon} ${(exp.category || 'other').toUpperCase()}</strong>
+              </div>
+              <div class="breakdown-stat">
+                <span class="breakdown-label">Split Type</span>
+                <strong>${splitTypeLabel}</strong>
+              </div>
             </div>
-            <button type="button" class="exp-delete-btn" data-exp-id="${exp.id}" title="Delete expense">✕</button>
+
+            <div class="exp-participants-breakdown">
+              <span class="breakdown-sublabel">INDIVIDUAL BREAKDOWN</span>
+              <div class="exp-participants-list">
+                ${participantsHtml}
+              </div>
+            </div>
+
+            <div class="exp-breakdown-actions">
+              <button type="button" class="exp-action-btn btn-delete-exp" data-exp-id="${exp.id}">Delete</button>
+              <button type="button" class="exp-action-btn btn-edit-exp" data-exp-id="${exp.id}">✏️ Edit Expense</button>
+            </div>
           </div>
         `;
         ledgerList.appendChild(item);
       });
 
+      // Expand/Collapse on clicking exp-item-main
+      ledgerList.querySelectorAll('.exp-item-main').forEach(mainRow => {
+        mainRow.onclick = e => {
+          if (e.target.closest('.exp-delete-btn')) return;
+          const parentItem = mainRow.closest('.expense-ledger-item');
+          if (parentItem) parentItem.classList.toggle('is-expanded');
+        };
+      });
+
+      // Quick Delete from main row
       ledgerList.querySelectorAll('.exp-delete-btn').forEach(btn => {
-        btn.onclick = () => {
+        btn.onclick = e => {
+          e.stopPropagation();
           const expId = btn.getAttribute('data-exp-id');
-          currentTrip.expenses = currentTrip.expenses.filter(e => e.id !== expId);
-          saveTripToStorage();
-          renderExpenseSplitter();
+          if (confirm('Delete this expense?')) {
+            currentTrip.expenses = currentTrip.expenses.filter(e => e.id !== expId);
+            saveTripToStorage();
+            renderExpenseSplitter();
+          }
+        };
+      });
+
+      // Delete from breakdown action
+      ledgerList.querySelectorAll('.btn-delete-exp').forEach(btn => {
+        btn.onclick = e => {
+          e.stopPropagation();
+          const expId = btn.getAttribute('data-exp-id');
+          if (confirm('Delete this expense?')) {
+            currentTrip.expenses = currentTrip.expenses.filter(e => e.id !== expId);
+            saveTripToStorage();
+            renderExpenseSplitter();
+          }
+        };
+      });
+
+      // Edit Expense button from breakdown
+      ledgerList.querySelectorAll('.btn-edit-exp').forEach(btn => {
+        btn.onclick = e => {
+          e.stopPropagation();
+          const expId = btn.getAttribute('data-exp-id');
+          openEditExpenseModal(expId);
         };
       });
     }
@@ -4979,6 +5229,283 @@ async function fetchLiveExchangeRate(currency, showFeedback = true) {
   } finally {
     if (btn) btn.textContent = '⚡ Live';
   }
+}
+
+// ---------------- Edit Expense & Payment Modals ----------------
+let editingExpenseSplitMode = 'equal';
+
+function openEditExpenseModal(expId) {
+  const exp = currentTrip.expenses.find(e => e.id === expId);
+  if (!exp) return;
+
+  const modal = $('expense-edit-modal');
+  if (!modal) return;
+
+  $('edit-exp-id').value = exp.id;
+  $('edit-exp-desc').value = exp.description || '';
+  $('edit-exp-amount').value = exp.amount;
+  $('edit-exp-category').value = exp.category || 'food';
+  $('edit-exp-date').value = exp.date || new Date().toISOString().slice(0, 10);
+
+  // Populate Payer dropdown
+  const payerSelect = $('edit-exp-payer');
+  if (payerSelect) {
+    payerSelect.innerHTML = '';
+    currentTrip.members.forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m.id;
+      opt.textContent = m.name;
+      if (m.id === exp.paidBy) opt.selected = true;
+      payerSelect.appendChild(opt);
+    });
+  }
+
+  editingExpenseSplitMode = exp.splitMode || 'equal';
+  const modalTabs = document.querySelectorAll('.edit-split-tabs .split-tab');
+  modalTabs.forEach(t => {
+    if (t.getAttribute('data-editsplit') === editingExpenseSplitMode) {
+      t.classList.add('active');
+    } else {
+      t.classList.remove('active');
+    }
+  });
+
+  renderEditAllocationsBox(exp);
+  modal.hidden = false;
+}
+
+function closeEditExpenseModal() {
+  const modal = $('expense-edit-modal');
+  if (modal) modal.hidden = true;
+}
+
+function renderEditAllocationsBox(existingExp = null) {
+  const container = $('edit-allocations-container');
+  const statusEl = $('edit-alloc-status');
+  if (!container || !currentTrip) return;
+
+  const totalAmount = parseFloat($('edit-exp-amount')?.value) || 0;
+  const members = currentTrip.members;
+  const sym = EXPENSE_CURRENCIES[currentTrip.currency]?.symbol || currentTrip.currency;
+
+  container.innerHTML = '';
+
+  if (editingExpenseSplitMode === 'equal') {
+    statusEl.textContent = 'Split equally among all checked friends.';
+    statusEl.className = 'expense-alloc-status status-ok';
+
+    members.forEach(m => {
+      const isChecked = existingExp && existingExp.participants
+        ? existingExp.participants.some(p => p.memberId === m.id)
+        : true;
+
+      const row = document.createElement('div');
+      row.className = 'alloc-row';
+      row.innerHTML = `
+        <label class="alloc-left" style="cursor:pointer">
+          <input type="checkbox" class="edit-alloc-member-check" data-member-id="${m.id}" ${isChecked ? 'checked' : ''}>
+          <span class="alloc-avatar" style="background:${m.color}">${m.name.slice(0, 2).toUpperCase()}</span>
+          <span class="alloc-name">${m.name}</span>
+        </label>
+        <span class="alloc-equal-share" id="edit-alloc-share-${m.id}">-</span>
+      `;
+      container.appendChild(row);
+    });
+
+    updateEditEqualSharePreviews();
+    container.querySelectorAll('.edit-alloc-member-check').forEach(chk => {
+      chk.onchange = () => updateEditEqualSharePreviews();
+    });
+  } else if (editingExpenseSplitMode === 'exact') {
+    statusEl.textContent = `Enter exact amounts (Total: ${sym}${totalAmount.toFixed(2)})`;
+    statusEl.className = 'expense-alloc-status';
+
+    members.forEach(m => {
+      const part = existingExp?.participants?.find(p => p.memberId === m.id);
+      const val = part ? part.amount : '';
+
+      const row = document.createElement('div');
+      row.className = 'alloc-row';
+      row.innerHTML = `
+        <div class="alloc-left">
+          <span class="alloc-avatar" style="background:${m.color}">${m.name.slice(0, 2).toUpperCase()}</span>
+          <span class="alloc-name">${m.name}</span>
+        </div>
+        <div class="alloc-input-wrap">
+          <span class="alloc-unit">${sym}</span>
+          <input type="number" step="0.01" min="0" class="alloc-input edit-alloc-exact-val" data-member-id="${m.id}" value="${val}" placeholder="0.00">
+        </div>
+      `;
+      container.appendChild(row);
+    });
+
+    attachEditAllocInputListeners('exact');
+  } else if (editingExpenseSplitMode === 'percent') {
+    statusEl.textContent = 'Enter percentages (must total 100%)';
+    statusEl.className = 'expense-alloc-status';
+
+    members.forEach(m => {
+      const part = existingExp?.participants?.find(p => p.memberId === m.id);
+      let pctVal = '';
+      if (part && existingExp && existingExp.amount > 0) {
+        pctVal = Math.round((part.amount / existingExp.amount) * 100);
+      }
+
+      const row = document.createElement('div');
+      row.className = 'alloc-row';
+      row.innerHTML = `
+        <div class="alloc-left">
+          <span class="alloc-avatar" style="background:${m.color}">${m.name.slice(0, 2).toUpperCase()}</span>
+          <span class="alloc-name">${m.name}</span>
+        </div>
+        <div class="alloc-input-wrap">
+          <input type="number" step="1" min="0" max="100" class="alloc-input edit-alloc-pct-val" data-member-id="${m.id}" value="${pctVal}" placeholder="0">
+          <span class="alloc-unit">%</span>
+        </div>
+      `;
+      container.appendChild(row);
+    });
+
+    attachEditAllocInputListeners('percent');
+  } else if (editingExpenseSplitMode === 'shares') {
+    statusEl.textContent = 'Enter shares (e.g. 2 for couples, 1 for singles)';
+    statusEl.className = 'expense-alloc-status';
+
+    members.forEach(m => {
+      const row = document.createElement('div');
+      row.className = 'alloc-row';
+      row.innerHTML = `
+        <div class="alloc-left">
+          <span class="alloc-avatar" style="background:${m.color}">${m.name.slice(0, 2).toUpperCase()}</span>
+          <span class="alloc-name">${m.name}</span>
+        </div>
+        <div class="alloc-input-wrap">
+          <input type="number" step="1" min="0" class="alloc-input edit-alloc-shares-val" data-member-id="${m.id}" value="1">
+          <span class="alloc-unit">shares</span>
+        </div>
+      `;
+      container.appendChild(row);
+    });
+
+    attachEditAllocInputListeners('shares');
+  }
+}
+
+function updateEditEqualSharePreviews() {
+  const total = parseFloat($('edit-exp-amount')?.value) || 0;
+  const sym = EXPENSE_CURRENCIES[currentTrip.currency]?.symbol || currentTrip.currency;
+  const checks = document.querySelectorAll('.edit-alloc-member-check:checked');
+  const count = checks.length;
+  const share = count > 0 ? (total / count) : 0;
+
+  document.querySelectorAll('.edit-alloc-member-check').forEach(chk => {
+    const id = chk.getAttribute('data-member-id');
+    const span = $(`edit-alloc-share-${id}`);
+    if (span) {
+      span.textContent = chk.checked ? `${sym}${share.toFixed(2)}` : 'Excluded';
+      span.style.color = chk.checked ? 'var(--ink)' : 'var(--muted)';
+    }
+  });
+}
+
+function attachEditAllocInputListeners(mode) {
+  const inputs = document.querySelectorAll('#edit-allocations-container .alloc-input');
+  inputs.forEach(inp => {
+    inp.oninput = () => validateEditAllocations(mode);
+  });
+  validateEditAllocations(mode);
+}
+
+function validateEditAllocations(mode) {
+  const statusEl = $('edit-alloc-status');
+  const totalAmount = parseFloat($('edit-exp-amount')?.value) || 0;
+  const sym = EXPENSE_CURRENCIES[currentTrip.currency]?.symbol || currentTrip.currency;
+
+  if (mode === 'exact') {
+    let sum = 0;
+    document.querySelectorAll('.edit-alloc-exact-val').forEach(inp => {
+      sum += parseFloat(inp.value) || 0;
+    });
+    sum = Math.round(sum * 100) / 100;
+    const diff = Math.round((totalAmount - sum) * 100) / 100;
+
+    if (Math.abs(diff) < 0.01) {
+      statusEl.textContent = `✓ Exact match: ${sym}${sum.toFixed(2)} allocated.`;
+      statusEl.className = 'expense-alloc-status status-ok';
+      return true;
+    } else if (diff > 0) {
+      statusEl.textContent = `Remaining to allocate: ${sym}${diff.toFixed(2)} (Total: ${sym}${totalAmount.toFixed(2)})`;
+      statusEl.className = 'expense-alloc-status status-err';
+      return false;
+    } else {
+      statusEl.textContent = `Allocated ${sym}${Math.abs(diff).toFixed(2)} too much! (Total: ${sym}${totalAmount.toFixed(2)})`;
+      statusEl.className = 'expense-alloc-status status-err';
+      return false;
+    }
+  } else if (mode === 'percent') {
+    let sumPct = 0;
+    document.querySelectorAll('.edit-alloc-pct-val').forEach(inp => {
+      sumPct += parseFloat(inp.value) || 0;
+    });
+    if (sumPct === 100) {
+      statusEl.textContent = `✓ 100% allocated.`;
+      statusEl.className = 'expense-alloc-status status-ok';
+      return true;
+    } else {
+      statusEl.textContent = `Total: ${sumPct}% (needs to equal 100%)`;
+      statusEl.className = 'expense-alloc-status status-err';
+      return false;
+    }
+  } else if (mode === 'shares') {
+    let sumShares = 0;
+    document.querySelectorAll('.edit-alloc-shares-val').forEach(inp => {
+      sumShares += parseInt(inp.value, 10) || 0;
+    });
+    statusEl.textContent = `Total: ${sumShares} shares.`;
+    statusEl.className = 'expense-alloc-status status-ok';
+    return sumShares > 0;
+  }
+  return true;
+}
+
+function openPaymentModal(fromId = '', toId = '', defaultAmount = '', defaultNote = '') {
+  const modal = $('expense-payment-modal');
+  if (!modal || !currentTrip) return;
+
+  const fromSel = $('pay-from-member');
+  const toSel = $('pay-to-member');
+  fromSel.innerHTML = '';
+  toSel.innerHTML = '';
+
+  currentTrip.members.forEach(m => {
+    const optFrom = document.createElement('option');
+    optFrom.value = m.id;
+    optFrom.textContent = m.name;
+    fromSel.appendChild(optFrom);
+
+    const optTo = document.createElement('option');
+    optTo.value = m.id;
+    optTo.textContent = m.name;
+    toSel.appendChild(optTo);
+  });
+
+  if (fromId) fromSel.value = fromId;
+  if (toId) toSel.value = toId;
+  else if (currentTrip.members.length > 1 && fromSel.value === toSel.value) {
+    toSel.selectedIndex = (fromSel.selectedIndex + 1) % currentTrip.members.length;
+  }
+
+  $('pay-amount').value = defaultAmount || '';
+  $('pay-date').value = new Date().toISOString().slice(0, 10);
+  $('pay-note').value = defaultNote || '';
+
+  modal.hidden = false;
+  $('pay-amount').focus();
+}
+
+function closePaymentModal() {
+  const modal = $('expense-payment-modal');
+  if (modal) modal.hidden = true;
 }
 
 function initExpenseSplitter() {
@@ -5110,6 +5637,224 @@ function initExpenseSplitter() {
       }
     };
   }
+
+  // --- Edit Expense Modal Listeners ---
+  const editSplitTabs = document.querySelectorAll('.edit-split-tabs .split-tab');
+  editSplitTabs.forEach(tab => {
+    tab.onclick = () => {
+      editSplitTabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      editingExpenseSplitMode = tab.getAttribute('data-editsplit') || 'equal';
+      renderEditAllocationsBox();
+    };
+  });
+
+  const editAmountInput = $('edit-exp-amount');
+  if (editAmountInput) {
+    editAmountInput.oninput = () => {
+      if (editingExpenseSplitMode === 'equal') updateEditEqualSharePreviews();
+      else validateEditAllocations(editingExpenseSplitMode);
+    };
+  }
+
+  const editForm = $('expense-edit-form');
+  if (editForm) {
+    editForm.onsubmit = e => {
+      e.preventDefault();
+
+      const expId = $('edit-exp-id').value;
+      const desc = $('edit-exp-desc').value.trim();
+      const amount = parseFloat($('edit-exp-amount').value);
+      const payerId = $('edit-exp-payer').value;
+      const category = $('edit-exp-category').value;
+      const date = $('edit-exp-date').value || new Date().toISOString().slice(0, 10);
+
+      if (!desc || isNaN(amount) || amount <= 0) {
+        alert('Please enter a valid description and amount.');
+        return;
+      }
+
+      const expIndex = currentTrip.expenses.findIndex(exp => exp.id === expId);
+      if (expIndex === -1) {
+        alert('Expense not found.');
+        return;
+      }
+
+      let participants = [];
+
+      if (editingExpenseSplitMode === 'equal') {
+        const checked = Array.from(document.querySelectorAll('.edit-alloc-member-check:checked'));
+        if (checked.length === 0) {
+          alert('Please select at least one friend to split this expense.');
+          return;
+        }
+
+        const count = checked.length;
+        const totalCents = Math.round(amount * 100);
+        const baseCents = Math.floor(totalCents / count);
+        let remCents = totalCents % count;
+
+        participants = checked.map(chk => {
+          const mId = chk.getAttribute('data-member-id');
+          const extra = remCents > 0 ? 1 : 0;
+          if (remCents > 0) remCents--;
+          return {
+            memberId: mId,
+            amount: (baseCents + extra) / 100
+          };
+        });
+      } else if (editingExpenseSplitMode === 'exact') {
+        let sum = 0;
+        const inputs = Array.from(document.querySelectorAll('.edit-alloc-exact-val'));
+        participants = inputs.map(inp => {
+          const val = parseFloat(inp.value) || 0;
+          sum += val;
+          return { memberId: inp.getAttribute('data-member-id'), amount: Math.round(val * 100) / 100 };
+        }).filter(p => p.amount > 0);
+
+        sum = Math.round(sum * 100) / 100;
+        if (Math.abs(amount - sum) > 0.01) {
+          alert(`Allocated amounts (${sum.toFixed(2)}) must exactly equal the total expense amount (${amount.toFixed(2)}).`);
+          return;
+        }
+      } else if (editingExpenseSplitMode === 'percent') {
+        let sumPct = 0;
+        const inputs = Array.from(document.querySelectorAll('.edit-alloc-pct-val'));
+        inputs.forEach(inp => sumPct += (parseFloat(inp.value) || 0));
+
+        if (sumPct !== 100) {
+          alert(`Percentages must equal exactly 100% (currently ${sumPct}%).`);
+          return;
+        }
+
+        participants = inputs.map(inp => {
+          const pct = parseFloat(inp.value) || 0;
+          return {
+            memberId: inp.getAttribute('data-member-id'),
+            amount: Math.round((amount * (pct / 100)) * 100) / 100
+          };
+        }).filter(p => p.amount > 0);
+      } else if (editingExpenseSplitMode === 'shares') {
+        const inputs = Array.from(document.querySelectorAll('.edit-alloc-shares-val'));
+        let totalShares = 0;
+        inputs.forEach(inp => totalShares += (parseInt(inp.value, 10) || 0));
+
+        if (totalShares <= 0) {
+          alert('Total shares must be greater than zero.');
+          return;
+        }
+
+        let allocatedCents = 0;
+        const totalCents = Math.round(amount * 100);
+
+        participants = inputs.map((inp, idx) => {
+          const s = parseInt(inp.value, 10) || 0;
+          if (idx === inputs.length - 1) {
+            return {
+              memberId: inp.getAttribute('data-member-id'),
+              amount: (totalCents - allocatedCents) / 100
+            };
+          }
+          const shareCents = Math.round((totalCents * (s / totalShares)));
+          allocatedCents += shareCents;
+          return {
+            memberId: inp.getAttribute('data-member-id'),
+            amount: shareCents / 100
+          };
+        }).filter(p => p.amount > 0);
+      }
+
+      currentTrip.expenses[expIndex] = {
+        ...currentTrip.expenses[expIndex],
+        description: desc,
+        amount,
+        paidBy: payerId,
+        category,
+        date,
+        splitMode: editingExpenseSplitMode,
+        participants
+      };
+
+      saveTripToStorage();
+      closeEditExpenseModal();
+      renderExpenseSplitter();
+    };
+  }
+
+  // --- Payment Modal Listeners ---
+  const btnOpenPaymentModal = $('btn-open-payment-modal');
+  if (btnOpenPaymentModal) {
+    btnOpenPaymentModal.onclick = () => {
+      openPaymentModal();
+    };
+  }
+
+  const paymentForm = $('expense-payment-form');
+  if (paymentForm) {
+    paymentForm.onsubmit = e => {
+      e.preventDefault();
+      const fromId = $('pay-from-member').value;
+      const toId = $('pay-to-member').value;
+      const amt = parseFloat($('pay-amount').value);
+      const date = $('pay-date').value || new Date().toISOString().slice(0, 10);
+      const note = $('pay-note').value.trim();
+
+      if (!fromId || !toId || fromId === toId) {
+        alert('Please select two different members for the payment.');
+        return;
+      }
+      if (isNaN(amt) || amt <= 0) {
+        alert('Please enter a valid payment amount.');
+        return;
+      }
+
+      if (!Array.isArray(currentTrip.payments)) currentTrip.payments = [];
+      currentTrip.payments.push({
+        id: 'pay_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+        fromId,
+        toId,
+        amount: amt,
+        date,
+        note
+      });
+
+      saveTripToStorage();
+      closePaymentModal();
+      renderExpenseSplitter();
+    };
+  }
+
+  // --- Modal Close / Dismiss Listeners ---
+  const btnCloseEditModal = $('btn-close-edit-modal');
+  const btnCancelEditModal = $('btn-cancel-edit-modal');
+  if (btnCloseEditModal) btnCloseEditModal.onclick = closeEditExpenseModal;
+  if (btnCancelEditModal) btnCancelEditModal.onclick = closeEditExpenseModal;
+
+  const btnClosePayModal = $('btn-close-payment-modal');
+  const btnCancelPayModal = $('btn-cancel-payment-modal');
+  if (btnClosePayModal) btnClosePayModal.onclick = closePaymentModal;
+  if (btnCancelPayModal) btnCancelPayModal.onclick = closePaymentModal;
+
+  const editModalOverlay = $('expense-edit-modal');
+  if (editModalOverlay) {
+    editModalOverlay.onclick = e => {
+      if (e.target === editModalOverlay) closeEditExpenseModal();
+    };
+  }
+
+  const payModalOverlay = $('expense-payment-modal');
+  if (payModalOverlay) {
+    payModalOverlay.onclick = e => {
+      if (e.target === payModalOverlay) closePaymentModal();
+    };
+  }
+
+  window.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      closeEditExpenseModal();
+      closePaymentModal();
+    }
+  });
 
   // Mode Tabs
   const tabForm = $('tab-entry-form');

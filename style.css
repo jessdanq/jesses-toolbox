@@ -823,3 +823,400 @@ kbd { background: #ebeee6; border: 1px solid #d3d9cb; border-radius: 4px; paddin
   padding: 2px 5px;
   white-space: nowrap;
 }
+
+
+/* =========================================================
+   --- Expense Splitter: Breakdown, Edit Modal & Part Payments ---
+   ========================================================= */
+
+/* Modals */
+.toolbox-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(18, 30, 24, 0.65);
+  backdrop-filter: blur(4px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  overflow-y: auto;
+}
+.toolbox-modal-overlay[hidden] {
+  display: none !important;
+}
+.toolbox-modal-card {
+  background: #fffef9;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  width: 100%;
+  max-width: 640px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.22);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: modalSlideDown 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.toolbox-modal-card.modal-sm {
+  max-width: 480px;
+}
+@keyframes modalSlideDown {
+  from { opacity: 0; transform: translateY(-16px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.toolbox-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--line);
+  background: #fdfdfa;
+}
+.modal-title-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.toolbox-modal-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--ink);
+}
+.modal-sub {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 500;
+}
+.modal-close-btn {
+  background: none;
+  border: none;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all .15s;
+}
+.modal-close-btn:hover {
+  background: #eef1ea;
+  color: var(--ink);
+}
+.toolbox-modal-body {
+  padding: 22px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: calc(85vh - 130px);
+  overflow-y: auto;
+}
+.toolbox-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 24px;
+  border-top: 1px solid var(--line);
+  background: #fbfbf7;
+}
+
+/* Expense Ledger Items & Breakdown Accordion */
+.expense-ledger-item {
+  display: flex;
+  flex-direction: column;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #fbfbf7;
+  border: 1px solid #edf0e6;
+  cursor: pointer;
+  transition: border-color .15s, background .15s, box-shadow .15s;
+}
+.expense-ledger-item:hover {
+  background: #f6f8f2;
+  border-color: #d8dfd2;
+}
+.expense-ledger-item.is-expanded {
+  background: #fff;
+  border-color: #245342;
+  box-shadow: 0 4px 12px rgba(36, 83, 66, 0.08);
+}
+.exp-item-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
+.exp-expand-chevron {
+  font-size: 10px;
+  color: var(--muted);
+  transition: transform .2s ease;
+  margin-left: 6px;
+  user-select: none;
+}
+.expense-ledger-item.is-expanded .exp-expand-chevron {
+  transform: rotate(180deg);
+  color: #245342;
+}
+.exp-item-breakdown {
+  margin-top: 12px;
+  border-top: 1px solid #edf0e6;
+  padding-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  animation: fadeIn .15s ease-out;
+}
+.exp-breakdown-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  background: #fbfbf8;
+  border: 1px solid #eef1ea;
+  border-radius: 8px;
+  padding: 10px 14px;
+}
+.breakdown-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.breakdown-label {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+.breakdown-stat strong {
+  font-size: 12px;
+  color: var(--ink);
+  word-break: break-word;
+}
+.exp-participants-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.breakdown-sublabel {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+}
+.exp-participants-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.exp-participant-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  background: #fcfcf9;
+  border: 1px solid #edf0e6;
+  border-radius: 6px;
+  font-size: 12px;
+}
+.exp-participant-row.is-excluded {
+  opacity: 0.55;
+  background: #fbfbf7;
+}
+.exp-part-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.exp-part-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.exp-part-amt {
+  font-weight: 700;
+  color: var(--ink);
+}
+.exp-part-pct {
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 600;
+}
+.exp-breakdown-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+  border-top: 1px solid #edf0e6;
+  padding-top: 10px;
+}
+.exp-action-btn {
+  padding: 6px 14px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all .15s;
+}
+.btn-edit-exp {
+  background: #245342;
+  color: #fff;
+  border: 1px solid #245342;
+}
+.btn-edit-exp:hover {
+  background: #1c4335;
+}
+.btn-delete-exp {
+  background: none;
+  border: none;
+  color: #c4472f;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.btn-delete-exp:hover {
+  color: #9c331e;
+}
+
+/* Part Payments in Settlement Card */
+.transfer-card {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+.transfer-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.transfer-card-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px dashed #e2e6dc;
+  padding-top: 8px;
+  margin-top: 2px;
+  font-size: 11px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.transfer-debt-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #556b53;
+  font-weight: 600;
+}
+.transfer-actions-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn-part-pay {
+  background: #eef3e9;
+  border: 1px solid #ccd8c8;
+  color: #245342;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background .15s;
+}
+.btn-part-pay:hover {
+  background: #dfe9d8;
+}
+.btn-settle-full {
+  background: #245342;
+  border: 1px solid #245342;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background .15s;
+}
+.btn-settle-full:hover {
+  background: #1c4335;
+}
+.transfer-settled-pill {
+  background: #e6ede6;
+  color: #245342;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 12px;
+  border: 1px solid #c2d6c5;
+}
+
+/* Payments Log Section */
+.settlement-payments-section {
+  background: #fbfbf8;
+  border: 1px solid #edf0e6;
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+.settlement-payments-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.settlement-payments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+.payment-log-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 10px;
+  background: #fff;
+  border: 1px solid #eef1ea;
+  border-radius: 6px;
+  font-size: 11px;
+}
+.payment-log-parties {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.payment-log-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.payment-log-amt {
+  font-weight: 800;
+  color: #245342;
+}
+.payment-log-del {
+  background: none;
+  border: none;
+  color: #a3a3a3;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 4px;
+  transition: color .15s;
+}
+.payment-log-del:hover {
+  color: #c4472f;
+}
+
+@media(max-width: 600px) {
+  .exp-breakdown-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
