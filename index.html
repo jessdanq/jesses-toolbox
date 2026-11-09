@@ -477,8 +477,9 @@
 
       <div class="expense-form-row">
         <div class="form-group flex-1">
-          <label for="pay-amount">Amount (<span class="exp-cur-symbol">€</span>)</label>
+          <label for="pay-amount">Amount (£ - GBP)</label>
           <input type="number" id="pay-amount" step="0.01" min="0.01" placeholder="0.00" required>
+          <div id="pay-amount-equiv" style="font-size:11px;color:var(--muted);margin-top:3px" hidden></div>
         </div>
         <div class="form-group flex-1">
           <label for="pay-date">Date</label>
@@ -488,7 +489,7 @@
 
       <div class="form-group">
         <label for="pay-note">Payment Note (Optional)</label>
-        <input type="text" id="pay-note" placeholder="e.g. Revolut, Cash, Part payment, Bank transfer…">
+        <input type="text" id="pay-note" placeholder="e.g. Revolut, Monzo, Bank transfer, Cash…">
       </div>
 
       <div class="toolbox-modal-footer">

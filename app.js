@@ -4216,7 +4216,7 @@ function populateCloudTripsDropdown(rows) {
 }
 
 // ---------------- Financial Calculations ----------------
-function calculateNetBalances(members, expenses, payments = []) {
+function calculateNetBalances(members, expenses, payments = [], gbpRate = 1) {
   const balances = {};
   for (const m of (members || [])) balances[m.id] = 0;
 
@@ -4236,14 +4236,18 @@ function calculateNetBalances(members, expenses, payments = []) {
     }
   }
 
-  // Account for payments between members (debt settlements or partial payments)
+  // Account for payments between members (all payments done in GBP)
   for (const p of (payments || [])) {
-    const amt = Number(p.amount) || 0;
+    let amtTrip = Number(p.amount);
+    if (isNaN(amtTrip) || amtTrip <= 0) {
+      const gbp = Number(p.amountGbp) || 0;
+      amtTrip = gbpRate > 0 ? (gbp / gbpRate) : gbp;
+    }
     if (balances[p.fromId] !== undefined) {
-      balances[p.fromId] += amt; // debtor paying reduces what they owe
+      balances[p.fromId] += amtTrip; // debtor paying reduces what they owe
     }
     if (balances[p.toId] !== undefined) {
-      balances[p.toId] -= amt; // creditor receiving reduces what they are owed
+      balances[p.toId] -= amtTrip; // creditor receiving reduces what they are owed
     }
   }
 
@@ -4330,11 +4334,16 @@ function calculateDirectDebts(trip, membersMap) {
     }
   }
 
-  // Deduct direct payments
+  const rate = Number(trip.gbpRate) || 1;
+  // Deduct direct payments (payments recorded in GBP)
   for (const p of (trip.payments || [])) {
     const from = p.fromId;
     const to = p.toId;
-    const amt = Number(p.amount) || 0;
+    let amt = Number(p.amount);
+    if (isNaN(amt) || amt <= 0) {
+      const gbp = Number(p.amountGbp) || 0;
+      amt = rate > 0 ? (gbp / rate) : gbp;
+    }
     const key = `${from}__${to}`;
     const revKey = `${to}__${from}`;
 
@@ -4486,11 +4495,14 @@ function generateWhatsAppSummary(trip, simplified = true) {
 
   const membersMap = Object.fromEntries(trip.members.map(m => [m.id, m]));
   const payments = trip.payments || [];
-  const netBalances = calculateNetBalances(trip.members, trip.expenses, payments);
+  const netBalances = calculateNetBalances(trip.members, trip.expenses, payments, rate);
   const transfers = simplified ? simplifyDebts(netBalances, membersMap) : calculateDirectDebts(trip, membersMap);
 
-  const totalPaid = payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-  const paidFmt = formatExpenseAmount(totalPaid, trip.currency, rate).text;
+  const totalPaidGbp = payments.reduce((sum, p) => {
+    const g = Number(p.amountGbp);
+    if (!isNaN(g) && g > 0) return sum + g;
+    return sum + (Number(p.amount) * rate || 0);
+  }, 0);
 
   let msg = `*TRIP EXPENSE SUMMARY: ${cleanTitle.toUpperCase()}*\n`;
   msg += `Generated: ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}\n\n`;
@@ -4501,7 +4513,7 @@ function generateWhatsAppSummary(trip, simplified = true) {
   msg += `• Average per Person: ${avgFmt}\n`;
   msg += `• Total Expenses Logged: ${trip.expenses.length}\n`;
   if (payments.length > 0) {
-    msg += `• Payments Recorded to Date: ${paidFmt} (${payments.length} transaction${payments.length === 1 ? '' : 's'})\n`;
+    msg += `• Payments Recorded to Date: £${totalPaidGbp.toFixed(2)} (${payments.length} transaction${payments.length === 1 ? '' : 's'})\n`;
   }
   msg += `\n`;
 
@@ -4529,24 +4541,28 @@ function generateWhatsAppSummary(trip, simplified = true) {
     transfers.forEach((t, i) => {
       const from = stripEmojis(t.fromName);
       const to = stripEmojis(t.toName);
-      const amtFmt = formatExpenseAmount(t.amount, trip.currency, rate).text;
-      msg += `${i + 1}. ${from} pays ${to}: ${amtFmt}\n`;
+      const gbpAmt = Math.round((t.amount * rate) * 100) / 100;
+      if (trip.currency === 'GBP') {
+        msg += `${i + 1}. ${from} pays ${to}: £${gbpAmt.toFixed(2)}\n`;
+      } else {
+        const localAmt = formatExpenseAmount(t.amount, trip.currency, rate).local;
+        msg += `${i + 1}. ${from} pays ${to}: £${gbpAmt.toFixed(2)} (~${localAmt})\n`;
+      }
     });
   }
 
   if (payments.length > 0) {
-    msg += `\n*PAYMENTS LOGGED TO DATE*\n`;
+    msg += `\n*PAYMENTS LOGGED TO DATE (IN GBP)*\n`;
     msg += `----------------------------------------\n`;
     payments.forEach(p => {
       const from = stripEmojis(membersMap[p.fromId]?.name || 'Unknown');
       const to = stripEmojis(membersMap[p.toId]?.name || 'Unknown');
-      const pAmt = formatExpenseAmount(p.amount, trip.currency, rate).text;
+      const gbpVal = Number(p.amountGbp || (trip.currency === 'GBP' ? p.amount : p.amount * rate)) || 0;
       const noteStr = p.note ? ` (${stripEmojis(p.note)})` : '';
-      msg += `• ${p.date || 'Payment'}: ${from} paid ${to} ${pAmt}${noteStr}\n`;
+      msg += `• ${p.date || 'Payment'}: ${from} paid ${to} £${gbpVal.toFixed(2)}${noteStr}\n`;
     });
   }
 
-  msg += `\nShared via Jesse's Toolbox`;
   return stripEmojis(msg);
 }
 
@@ -4823,7 +4839,7 @@ function renderExpenseSplitter() {
 
   // 4. Balances & Settlement Calculations
   const membersMap = Object.fromEntries(currentTrip.members.map(m => [m.id, m]));
-  const netBalances = calculateNetBalances(currentTrip.members, currentTrip.expenses, currentTrip.payments || []);
+  const netBalances = calculateNetBalances(currentTrip.members, currentTrip.expenses, currentTrip.payments || [], rate);
 
   const transfers = simplifyDebtsActive
     ? simplifyDebts(netBalances, membersMap)
@@ -4852,8 +4868,14 @@ function renderExpenseSplitter() {
         card.className = 'transfer-card' + (isPaid ? ' is-paid' : '');
 
         const amtFmt = formatExpenseAmount(t.amount, currentTrip.currency, rate);
+        const gbpVal = Math.round((t.amount * rate) * 100) / 100;
+
         const pairPayments = (currentTrip.payments || []).filter(p => p.fromId === t.fromId && p.toId === t.toId);
-        const totalPaidPair = pairPayments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
+        const totalPaidPairGbp = pairPayments.reduce((s, p) => {
+          const g = Number(p.amountGbp);
+          if (!isNaN(g) && g > 0) return s + g;
+          return s + (Number(p.amount) * rate || 0);
+        }, 0);
 
         card.innerHTML = `
           <div class="transfer-card-top">
@@ -4863,20 +4885,20 @@ function renderExpenseSplitter() {
               <span class="transfer-party">${t.toName}</span>
             </div>
             <div class="transfer-amounts">
-              <span class="transfer-primary">${amtFmt.local}</span>
-              ${amtFmt.gbp ? `<span class="transfer-secondary">~${amtFmt.gbp}</span>` : ''}
+              <span class="transfer-primary">£${gbpVal.toFixed(2)}</span>
+              ${currentTrip.currency !== 'GBP' ? `<span class="transfer-secondary">~${amtFmt.local}</span>` : ''}
             </div>
           </div>
           <div class="transfer-card-bottom">
             <div class="transfer-debt-status">
-              ${totalPaidPair > 0
-                ? `<span class="transfer-paid-badge">${formatExpenseAmount(totalPaidPair, currentTrip.currency, rate).local} paid to date</span>`
-                : `<span>Remaining debt: <strong>${amtFmt.local}</strong></span>`
+              ${totalPaidPairGbp > 0
+                ? `<span class="transfer-paid-badge">£${totalPaidPairGbp.toFixed(2)} paid to date</span>`
+                : `<span>Remaining debt: <strong>£${gbpVal.toFixed(2)}</strong>${currentTrip.currency !== 'GBP' ? ` (~${amtFmt.local})` : ''}</span>`
               }
             </div>
             <div class="transfer-actions-group">
-              <button type="button" class="btn-part-pay" data-from-id="${t.fromId}" data-to-id="${t.toId}" data-rem-amt="${t.amount}" title="Log a partial payment">Part Pay</button>
-              <button type="button" class="btn-settle-full" data-from-id="${t.fromId}" data-to-id="${t.toId}" data-full-amt="${t.amount}" title="Log full settlement">Settle Full</button>
+              <button type="button" class="btn-part-pay" data-from-id="${t.fromId}" data-to-id="${t.toId}" title="Log a partial payment in GBP">Part Pay</button>
+              <button type="button" class="btn-settle-full" data-from-id="${t.fromId}" data-to-id="${t.toId}" data-full-gbp="${gbpVal.toFixed(2)}" title="Log full settlement in GBP">Settle Full (£${gbpVal.toFixed(2)})</button>
             </div>
           </div>
         `;
@@ -4895,8 +4917,8 @@ function renderExpenseSplitter() {
         btn.onclick = () => {
           const fromId = btn.getAttribute('data-from-id');
           const toId = btn.getAttribute('data-to-id');
-          const fullAmt = btn.getAttribute('data-full-amt');
-          openPaymentModal(fromId, toId, fullAmt, 'Full settlement');
+          const fullGbp = btn.getAttribute('data-full-gbp');
+          openPaymentModal(fromId, toId, fullGbp, 'Full settlement');
         };
       });
     }
@@ -4918,7 +4940,8 @@ function renderExpenseSplitter() {
         item.className = 'payment-log-item';
         const fromName = membersMap[p.fromId]?.name || 'Unknown';
         const toName = membersMap[p.toId]?.name || 'Unknown';
-        const pAmtFmt = formatExpenseAmount(p.amount, currentTrip.currency, rate);
+        const gbpVal = Number(p.amountGbp || (currentTrip.currency === 'GBP' ? p.amount : p.amount * rate)) || 0;
+        const tripVal = Number(p.amount || (rate > 0 ? gbpVal / rate : gbpVal)) || 0;
 
         item.innerHTML = `
           <div class="payment-log-parties">
@@ -4928,7 +4951,7 @@ function renderExpenseSplitter() {
             <span style="font-size:10px;color:var(--muted);font-weight:400">· ${p.date || 'Today'}${p.note ? ` (${p.note})` : ''}</span>
           </div>
           <div class="payment-log-right">
-            <span class="payment-log-amt">${pAmtFmt.local}</span>
+            <span class="payment-log-amt">£${gbpVal.toFixed(2)}${currentTrip.currency !== 'GBP' ? ` <small style="font-size:10px;font-weight:500;color:var(--muted)">(~${sym}${tripVal.toFixed(2)})</small>` : ''}</span>
             <button type="button" class="payment-log-del" data-payment-id="${p.id}" title="Remove payment">✕</button>
           </div>
         `;
@@ -5468,6 +5491,26 @@ function validateEditAllocations(mode) {
   return true;
 }
 
+function updatePayAmountEquiv() {
+  const equivEl = $('pay-amount-equiv');
+  if (!equivEl || !currentTrip) return;
+  const isGbpTrip = currentTrip.currency === 'GBP';
+  if (isGbpTrip) {
+    equivEl.hidden = true;
+    return;
+  }
+  const amtGbp = parseFloat($('pay-amount')?.value) || 0;
+  const rate = Number(currentTrip.gbpRate) || 1;
+  const sym = EXPENSE_CURRENCIES[currentTrip.currency]?.symbol || currentTrip.currency;
+  if (amtGbp > 0 && rate > 0) {
+    const equivTrip = amtGbp / rate;
+    equivEl.textContent = `~${sym}${equivTrip.toFixed(2)} in ${currentTrip.currency} (Rate: 1 ${currentTrip.currency} = £${rate.toFixed(3)})`;
+    equivEl.hidden = false;
+  } else {
+    equivEl.hidden = true;
+  }
+}
+
 function openPaymentModal(fromId = '', toId = '', defaultAmount = '', defaultNote = '') {
   const modal = $('expense-payment-modal');
   if (!modal || !currentTrip) return;
@@ -5498,6 +5541,7 @@ function openPaymentModal(fromId = '', toId = '', defaultAmount = '', defaultNot
   $('pay-amount').value = defaultAmount || '';
   $('pay-date').value = new Date().toISOString().slice(0, 10);
   $('pay-note').value = defaultNote || '';
+  updatePayAmountEquiv();
 
   modal.hidden = false;
   $('pay-amount').focus();
@@ -5789,6 +5833,11 @@ function initExpenseSplitter() {
     };
   }
 
+  const payAmountInput = $('pay-amount');
+  if (payAmountInput) {
+    payAmountInput.oninput = updatePayAmountEquiv;
+  }
+
   const paymentForm = $('expense-payment-form');
   if (paymentForm) {
     paymentForm.onsubmit = e => {
@@ -5808,12 +5857,18 @@ function initExpenseSplitter() {
         return;
       }
 
+      const rate = Number(currentTrip.gbpRate) || 1;
+      const isGbpTrip = currentTrip.currency === 'GBP';
+      const amtTripCur = isGbpTrip ? amt : (amt / rate);
+
       if (!Array.isArray(currentTrip.payments)) currentTrip.payments = [];
       currentTrip.payments.push({
         id: 'pay_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
         fromId,
         toId,
-        amount: amt,
+        amount: amtTripCur,      // stored in trip currency for net balance calculations
+        amountGbp: amt,         // the exact GBP amount entered by user
+        gbpRate: rate,
         date,
         note
       });
