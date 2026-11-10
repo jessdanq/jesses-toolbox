@@ -5552,6 +5552,276 @@ function closePaymentModal() {
   if (modal) modal.hidden = true;
 }
 
+
+function getMemberBreakdowns(members, expenses, payments = [], gbpRate = 1) {
+  const data = {};
+  for (const m of (members || [])) {
+    data[m.id] = {
+      id: m.id,
+      name: m.name,
+      paidExpenses: 0,
+      shareExpenses: 0,
+      paymentsMadeTrip: 0,
+      paymentsReceivedTrip: 0,
+      net: 0
+    };
+  }
+
+  for (const exp of (expenses || [])) {
+    const amt = Number(exp.amount) || 0;
+    if (data[exp.paidBy]) {
+      data[exp.paidBy].paidExpenses += amt;
+    }
+    for (const p of (exp.participants || [])) {
+      const pAmt = Number(p.amount) || 0;
+      if (data[p.memberId]) {
+        data[p.memberId].shareExpenses += pAmt;
+      }
+    }
+  }
+
+  for (const p of (payments || [])) {
+    let amtTrip = Number(p.amount);
+    if (isNaN(amtTrip) || amtTrip <= 0) {
+      const gbp = Number(p.amountGbp) || 0;
+      amtTrip = gbpRate > 0 ? (gbp / gbpRate) : gbp;
+    }
+    if (data[p.fromId]) data[p.fromId].paymentsMadeTrip += amtTrip;
+    if (data[p.toId]) data[p.toId].paymentsReceivedTrip += amtTrip;
+  }
+
+  for (const m of (members || [])) {
+    const d = data[m.id];
+    d.net = Math.round(((d.paidExpenses - d.shareExpenses) + d.paymentsMadeTrip - d.paymentsReceivedTrip) * 100) / 100;
+  }
+  return data;
+}
+
+function getSimplificationSteps(balances, membersMap, rate = 1) {
+  const creditors = [];
+  const debtors = [];
+
+  for (const [id, bal] of Object.entries(balances)) {
+    const rounded = Math.round(bal * 100) / 100;
+    if (rounded > 0.005) {
+      creditors.push({ id, name: membersMap[id]?.name || id, amount: rounded });
+    } else if (rounded < -0.005) {
+      debtors.push({ id, name: membersMap[id]?.name || id, amount: -rounded });
+    }
+  }
+
+  creditors.sort((a, b) => b.amount - a.amount);
+  debtors.sort((a, b) => b.amount - a.amount);
+
+  const steps = [];
+  let cIdx = 0;
+  let dIdx = 0;
+
+  while (cIdx < creditors.length && dIdx < debtors.length) {
+    const creditor = creditors[cIdx];
+    const debtor = debtors[dIdx];
+    const transferAmount = Math.min(creditor.amount, debtor.amount);
+    const roundedTrip = Math.round(transferAmount * 100) / 100;
+    const roundedGbp = Math.round((transferAmount * rate) * 100) / 100;
+
+    const beforeD = debtor.amount;
+    const beforeC = creditor.amount;
+
+    creditor.amount = Math.round((creditor.amount - transferAmount) * 100) / 100;
+    debtor.amount = Math.round((debtor.amount - transferAmount) * 100) / 100;
+
+    steps.push({
+      fromName: debtor.name,
+      toName: creditor.name,
+      amountTrip: roundedTrip,
+      amountGbp: roundedGbp,
+      debtorBeforeTrip: beforeD,
+      debtorAfterTrip: debtor.amount,
+      debtorBeforeGbp: Math.round((beforeD * rate) * 100) / 100,
+      debtorAfterGbp: Math.round((debtor.amount * rate) * 100) / 100,
+      creditorBeforeTrip: beforeC,
+      creditorAfterTrip: creditor.amount,
+      creditorBeforeGbp: Math.round((beforeC * rate) * 100) / 100,
+      creditorAfterGbp: Math.round((creditor.amount * rate) * 100) / 100
+    });
+
+    if (creditor.amount < 0.005) cIdx++;
+    if (debtor.amount < 0.005) dIdx++;
+  }
+
+  return steps;
+}
+
+function renderCalculationBreakdown() {
+  const content = $('modal-breakdown-content');
+  if (!content || !currentTrip) return;
+
+  const members = currentTrip.members || [];
+  const expenses = currentTrip.expenses || [];
+  const payments = currentTrip.payments || [];
+  const cur = currentTrip.currency || 'EUR';
+  const sym = EXPENSE_CURRENCIES[cur]?.symbol || cur;
+  const rate = Number(currentTrip.gbpRate) || 1;
+  const membersMap = Object.fromEntries(members.map(m => [m.id, m]));
+
+  if (expenses.length === 0) {
+    content.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted)">Load or add at least one expense to view the mathematical breakdown.</div>';
+    return;
+  }
+
+  const breakdowns = getMemberBreakdowns(members, expenses, payments, rate);
+  const netBalances = calculateNetBalances(members, expenses, payments, rate);
+  const simplified = simplifyDebts(netBalances, membersMap);
+  const direct = calculateDirectDebts(currentTrip, membersMap);
+  const steps = getSimplificationSteps(netBalances, membersMap, rate);
+
+  let html = '';
+
+  // 1. Core Mathematical Formula
+  html += `
+    <div class="modal-formula-card">
+      <div class="modal-formula-title">THE CORE PRINCIPLE</div>
+      <div class="modal-formula-math">Net Balance = Total Money Paid − Your Fair Share</div>
+      <div class="modal-formula-sub">
+        • If positive (<strong>+</strong>): You paid more than your share → <strong>The group owes you back (Creditor)</strong>.<br>
+        • If negative (<strong>−</strong>): You consumed more than you paid → <strong>You owe money to the group (Debtor)</strong>.<br>
+        • All settlements are calculated in <strong>GBP (£)</strong>${cur !== 'GBP' ? ` using the exchange rate of 1 ${cur} = £${rate.toFixed(4)}` : ''}.
+      </div>
+    </div>
+  `;
+
+  // 2. Step 1: Member Spending vs Fair Share Table
+  const hasPayments = payments.length > 0;
+  html += `
+    <div>
+      <div class="modal-section-title">
+        <span class="step-pill">STEP 1</span>
+        <span>Calculate Everyone's Net Balance</span>
+      </div>
+      <div class="modal-balance-table-wrap">
+        <table class="modal-balance-table">
+          <thead>
+            <tr>
+              <th>Member</th>
+              <th>Total Paid</th>
+              <th>Fair Share Consumed</th>
+              ${hasPayments ? '<th>Payments Made / Received</th>' : ''}
+              <th>Net Balance (GBP)</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+  `;
+
+  for (const m of members) {
+    const b = breakdowns[m.id] || { paidExpenses: 0, shareExpenses: 0, paymentsMadeTrip: 0, paymentsReceivedTrip: 0, net: 0 };
+    const netGbp = Math.round((b.net * rate) * 100) / 100;
+    const netCls = netGbp > 0.005 ? 'amount-pos' : netGbp < -0.005 ? 'amount-neg' : 'amount-zero';
+    const statusText = netGbp > 0.005 ? 'Gets back 🟢' : netGbp < -0.005 ? 'Owes group 🔴' : 'Settled ✓';
+    const sign = netGbp > 0.005 ? '+' : '';
+
+    let payCol = '';
+    if (hasPayments) {
+      const madeGbp = Math.round((b.paymentsMadeTrip * rate) * 100) / 100;
+      const recGbp = Math.round((b.paymentsReceivedTrip * rate) * 100) / 100;
+      payCol = `<td>+£${madeGbp.toFixed(2)} / -£${recGbp.toFixed(2)}</td>`;
+    }
+
+    html += `
+      <tr>
+        <td><strong>${m.name}</strong></td>
+        <td>${sym}${b.paidExpenses.toFixed(2)}</td>
+        <td>${sym}${b.shareExpenses.toFixed(2)}</td>
+        ${payCol}
+        <td class="${netCls}">${sign}£${netGbp.toFixed(2)}${cur !== 'GBP' ? ` <span style="font-size:10px;color:var(--muted)">(${sign}${sym}${b.net.toFixed(2)})</span>` : ''}</td>
+        <td>${statusText}</td>
+      </tr>
+    `;
+  }
+
+  html += `
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  // 3. Step 2: The Simplification Algorithm Explanation
+  html += `
+    <div>
+      <div class="modal-section-title">
+        <span class="step-pill">STEP 2</span>
+        <span>Greedy Min-Cash-Flow Matching</span>
+      </div>
+      <p style="font-size:12px;color:var(--muted);margin:0 0 10px;line-height:1.6">
+        Instead of multiple confusing cross-payments between friends, the <strong>Splitwise simplification algorithm</strong> pairs the person who owes the most directly with the person owed the most. Each transfer zeroes out at least one person until all balances reach <strong>£0.00</strong>:
+      </p>
+      <div class="modal-steps-list">
+  `;
+
+  if (steps.length === 0) {
+    html += '<div style="padding:10px;color:var(--muted);font-size:12px">All balances are currently settled at £0.00.</div>';
+  } else {
+    steps.forEach((s, idx) => {
+      const gbpAmt = s.amountGbp.toFixed(2);
+      const tripAmtFmt = cur !== 'GBP' ? ` (~ ${sym}${s.amountTrip.toFixed(2)})` : '';
+      html += `
+        <div class="modal-step-item">
+          <div class="modal-step-header">
+            <span>${idx + 1}. <strong>${s.fromName}</strong> pays <strong>${s.toName}</strong>: <span style="color:#245342;font-size:13px;font-weight:800">£${gbpAmt}${tripAmtFmt}</span></span>
+          </div>
+          <div class="modal-step-detail">
+            • <strong>${s.fromName}</strong> remaining debt: £${s.debtorBeforeGbp.toFixed(2)} → £${s.debtorAfterGbp.toFixed(2)} ${s.debtorAfterGbp <= 0.005 ? '<strong>(Fully Settled ✓)</strong>' : ''}<br>
+            • <strong>${s.toName}</strong> remaining credit: £${s.creditorBeforeGbp.toFixed(2)} → £${s.creditorAfterGbp.toFixed(2)} ${s.creditorAfterGbp <= 0.005 ? '<strong>(Fully Reimbursed ✓)</strong>' : ''}
+          </div>
+        </div>
+      `;
+    });
+  }
+
+  html += `
+      </div>
+    </div>
+  `;
+
+  // 4. Efficiency comparison
+  const directCount = direct.length;
+  const simplifiedCount = simplified.length;
+  const saved = Math.max(0, directCount - simplifiedCount);
+
+  html += `
+    <div class="modal-efficiency-box">
+      <div class="modal-eff-metric">
+        <strong>${directCount}</strong>
+        <span>Direct Individual IOUs</span>
+      </div>
+      <div class="modal-eff-arrow">➔</div>
+      <div class="modal-eff-metric">
+        <strong style="color:#15803d">${simplifiedCount}</strong>
+        <span>Optimal Simplified Transfers</span>
+      </div>
+      ${saved > 0 ? `<div class="modal-eff-badge">🎉 Saved ${saved} unnecessary bank transfer${saved === 1 ? '' : 's'}!</div>` : '<div class="modal-eff-badge">Already minimal!</div>'}
+    </div>
+  `;
+
+  content.innerHTML = html;
+}
+
+function openBreakdownModal() {
+  const modal = $('modal-calc-breakdown');
+  if (!modal) return;
+  renderCalculationBreakdown();
+  modal.hidden = false;
+  document.body.style.overflow = 'hidden';
+}
+
+function closeBreakdownModal() {
+  const modal = $('modal-calc-breakdown');
+  if (!modal) return;
+  modal.hidden = true;
+  document.body.style.overflow = '';
+}
+
 function initExpenseSplitter() {
   currentTrip = loadTripFromStorage() || createDefaultTrip();
 
@@ -5894,6 +6164,26 @@ function initExpenseSplitter() {
   if (editModalOverlay) {
     editModalOverlay.onclick = e => {
       if (e.target === editModalOverlay) closeEditExpenseModal();
+    };
+  }
+
+    // Breakdown Modal Listeners
+  const btnShowBreakdown = $('btn-show-math-breakdown');
+  if (btnShowBreakdown) {
+    btnShowBreakdown.onclick = openBreakdownModal;
+  }
+  const btnCloseBreakdown = $('btn-close-breakdown-modal');
+  if (btnCloseBreakdown) {
+    btnCloseBreakdown.onclick = closeBreakdownModal;
+  }
+  const btnCloseBreakdownFooter = $('btn-close-breakdown-footer');
+  if (btnCloseBreakdownFooter) {
+    btnCloseBreakdownFooter.onclick = closeBreakdownModal;
+  }
+  const breakdownModalOverlay = $('modal-calc-breakdown');
+  if (breakdownModalOverlay) {
+    breakdownModalOverlay.onclick = e => {
+      if (e.target === breakdownModalOverlay) closeBreakdownModal();
     };
   }
 

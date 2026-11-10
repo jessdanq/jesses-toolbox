@@ -332,10 +332,15 @@
           <div class="section-label">SPLITWISE SETTLEMENT</div>
           <h3 class="settlement-title">🤝 Who Owes Whom</h3>
         </div>
-        <label class="simplify-toggle-label" title="Collapse circular debts into the minimum possible transfers">
-          <input type="checkbox" id="toggle-simplify-debts" checked>
-          <span>Simplify Debts</span>
-        </label>
+        <div class="settlement-header-actions">
+          <button type="button" id="btn-show-math-breakdown" class="btn-math-breakdown" title="See step-by-step mathematical explanation of how these debts were calculated">
+            <span>🔍</span> How is this calculated?
+          </button>
+          <label class="simplify-toggle-label" title="Collapse circular debts into the minimum possible transfers">
+            <input type="checkbox" id="toggle-simplify-debts" checked>
+            <span>Simplify Debts</span>
+          </label>
+        </div>
       </div>
       <p class="settlement-sub" id="settlement-subtext">Calculating simplest payment route…</p>
       
@@ -497,6 +502,27 @@
         <button type="submit" class="expense-submit-btn">✓ Record Payment</button>
       </div>
     </form>
+  </div>
+</div>
+
+<!-- Modal 3: How calculations were made -->
+<div id="modal-calc-breakdown" class="toolbox-modal-overlay" hidden>
+  <div class="toolbox-modal-card">
+    <div class="toolbox-modal-header">
+      <div class="modal-title-wrap">
+        <h3 id="modal-breakdown-title">📐 How We Calculated Your Debts</h3>
+        <span class="modal-sub">Transparent mathematical breakdown behind the Splitwise simplification engine</span>
+      </div>
+      <button type="button" id="btn-close-breakdown-modal" class="modal-close-btn" title="Close">✕</button>
+    </div>
+
+    <div class="toolbox-modal-body" id="modal-breakdown-content">
+      <!-- Populated dynamically -->
+    </div>
+
+    <div class="toolbox-modal-footer">
+      <button type="button" id="btn-close-breakdown-footer" class="secondary-btn">Close</button>
+    </div>
   </div>
 </div>
 

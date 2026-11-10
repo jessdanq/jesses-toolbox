@@ -1220,3 +1220,185 @@ kbd { background: #ebeee6; border: 1px solid #d3d9cb; border-radius: 4px; paddin
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+/* Calculation Breakdown Modal & Header Button */
+.settlement-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.btn-math-breakdown {
+  background: #f0f7f2;
+  border: 1px solid #b2d7bd;
+  border-radius: 8px;
+  padding: 6px 11px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #245342;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.btn-math-breakdown:hover {
+  background: #245342;
+  color: #fff;
+  border-color: #245342;
+}
+
+.modal-formula-card {
+  background: #f2f7f1;
+  border: 1px solid #c8dec6;
+  border-radius: 10px;
+  padding: 14px 18px;
+}
+.modal-formula-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: #245342;
+  margin-bottom: 6px;
+}
+.modal-formula-math {
+  font-family: monospace;
+  font-size: 13px;
+  font-weight: bold;
+  color: #1b4335;
+  background: #ffffff;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px dashed #b2ceb0;
+  display: inline-block;
+  margin-bottom: 6px;
+  max-width: 100%;
+  overflow-x: auto;
+}
+.modal-formula-sub {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.modal-section-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.modal-section-title span.step-pill {
+  background: #245342;
+  color: #fff;
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 10px;
+  font-weight: 700;
+}
+
+.modal-balance-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+.modal-balance-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  background: #ffffff;
+  border: 1px solid #e2e8df;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.modal-balance-table th {
+  background: #f8faf6;
+  padding: 9px 12px;
+  text-align: left;
+  font-weight: 600;
+  color: #4b5848;
+  border-bottom: 1px solid #e2e8df;
+}
+.modal-balance-table td {
+  padding: 9px 12px;
+  border-bottom: 1px solid #f0f4ee;
+  color: var(--ink);
+}
+.modal-balance-table tr:last-child td {
+  border-bottom: none;
+}
+.modal-balance-table td.amount-pos {
+  color: #15803d;
+  font-weight: 700;
+}
+.modal-balance-table td.amount-neg {
+  color: #b91c1c;
+  font-weight: 700;
+}
+.modal-balance-table td.amount-zero {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.modal-steps-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.modal-step-item {
+  background: #fcfcfb;
+  border: 1px solid #e6ebe3;
+  border-radius: 8px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.modal-step-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+  font-size: 12px;
+}
+.modal-step-detail {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.modal-efficiency-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  background: #fafbf9;
+  border: 1px solid #e1e7de;
+  border-radius: 10px;
+  padding: 14px;
+  text-align: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.modal-eff-metric strong {
+  display: block;
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--ink);
+}
+.modal-eff-metric span {
+  font-size: 11px;
+  color: var(--muted);
+}
+.modal-eff-arrow {
+  font-size: 18px;
+  color: #245342;
+}
+.modal-eff-badge {
+  background: #e8f5ec;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+}
