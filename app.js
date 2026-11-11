@@ -21,6 +21,7 @@ function route() {
     stopLooper();
   }
   if (page === 'expense-splitter') { if (typeof renderExpenseSplitter === 'function') renderExpenseSplitter(); if (typeof fetchTripFromCloud === 'function') fetchTripFromCloud(); }
+  if (typeof updateHeaderActivePage === "function") updateHeaderActivePage(page);
   window.scrollTo(0, 0);
 }
 window.addEventListener('hashchange', route);
@@ -6951,11 +6952,152 @@ function initVideoDownloader() {
   }
 }
 
+
+/* --- Modern UI Navigation, Header & Quick Switcher --- */
+function updateHeaderActivePage(page) {
+  const pill = $('header-active-page');
+  const label = $('header-tool-name');
+  const btnHome = $('btn-header-home');
+  const pageNames = {
+    'home': 'Home Hub',
+    'mp3': 'YouTube to MP3',
+    'audio-looper': 'MP3 Cutter & Looper',
+    'repeater': 'YouTube A–B Repeater',
+    'local-repeater': 'Local Video A–B Repeater',
+    'video-downloader': 'Any Site Video Downloader',
+    'metadata-editor': 'Metadata & AI Stripper',
+    'ig-checker': 'Follow-Back Checker',
+    'expense-splitter': 'Holiday Expense Splitter'
+  };
+
+  if (!pill) return;
+  if (page === 'home' || !page) {
+    pill.hidden = true;
+    if (btnHome) btnHome.style.opacity = '0.6';
+  } else {
+    pill.hidden = false;
+    if (label) label.textContent = pageNames[page] || page;
+    if (btnHome) btnHome.style.opacity = '1';
+  }
+
+  const menuQuick = $('quick-switch-menu');
+  if (menuQuick) menuQuick.hidden = true;
+}
+
+function initNewUiNavigation() {
+  // 1. Quick Switcher Dropdown
+  const btnQuick = $('btn-quick-switch');
+  const menuQuick = $('quick-switch-menu');
+  if (btnQuick && menuQuick) {
+    btnQuick.onclick = (e) => {
+      e.stopPropagation();
+      menuQuick.hidden = !menuQuick.hidden;
+    };
+    document.addEventListener('click', (e) => {
+      if (!btnQuick.contains(e.target) && !menuQuick.contains(e.target)) {
+        menuQuick.hidden = true;
+      }
+    });
+    menuQuick.querySelectorAll('a').forEach(a => {
+      a.onclick = () => { menuQuick.hidden = true; };
+    });
+  }
+
+  // 2. Search & Category Filters on Home
+  const searchInput = $('tool-search-input');
+  const clearBtn = $('tool-search-clear');
+  const filterChips = document.querySelectorAll('.filter-chip');
+  const toolCards = document.querySelectorAll('.tool-card');
+  const emptyState = $('no-search-results');
+  const searchTermDisplay = $('search-term-display');
+  const resetBtn = $('btn-reset-search');
+
+  let activeCategory = 'all';
+  let currentQuery = '';
+
+  function filterTools() {
+    let visibleCount = 0;
+    const q = currentQuery.toLowerCase().trim();
+
+    toolCards.forEach(card => {
+      const cardCat = card.getAttribute('data-category') || '';
+      const cardKeywords = (card.getAttribute('data-keywords') || '').toLowerCase();
+      const cardText = card.textContent.toLowerCase();
+
+      const matchesCat = activeCategory === 'all' || cardCat === activeCategory;
+      const matchesSearch = !q || cardKeywords.includes(q) || cardText.includes(q);
+
+      if (matchesCat && matchesSearch) {
+        card.style.display = '';
+        visibleCount++;
+      } else {
+        card.style.display = 'none';
+      }
+    });
+
+    if (emptyState) {
+      if (visibleCount === 0) {
+        emptyState.hidden = false;
+        if (searchTermDisplay) searchTermDisplay.textContent = currentQuery || activeCategory;
+      } else {
+        emptyState.hidden = true;
+      }
+    }
+    if (clearBtn) {
+      clearBtn.hidden = !currentQuery;
+    }
+  }
+
+  if (searchInput) {
+    searchInput.addEventListener('input', () => {
+      currentQuery = searchInput.value;
+      filterTools();
+    });
+  }
+
+  if (clearBtn) {
+    clearBtn.onclick = () => {
+      searchInput.value = '';
+      currentQuery = '';
+      filterTools();
+      searchInput.focus();
+    };
+  }
+
+  if (resetBtn) {
+    resetBtn.onclick = () => {
+      if (searchInput) searchInput.value = '';
+      currentQuery = '';
+      activeCategory = 'all';
+      filterChips.forEach(c => c.classList.toggle('active', c.getAttribute('data-category') === 'all'));
+      filterTools();
+    };
+  }
+
+  filterChips.forEach(chip => {
+    chip.onclick = () => {
+      filterChips.forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      activeCategory = chip.getAttribute('data-category') || 'all';
+      filterTools();
+    };
+  });
+
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && menuQuick && !menuQuick.hidden) {
+      menuQuick.hidden = true;
+    }
+  });
+}
+
 // Initialize video downloader
 initVideoDownloader();
 
 // Initialize expense splitter
 initExpenseSplitter();
+
+// Initialize new UI navigation
+initNewUiNavigation();
 
 // Initialize route now that all components and listeners are loaded
 route();
